@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Flight Route Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Search Flight Routes</h1>
+
+    <form method="GET" action="/search">
+        <label for="origin">Origin Airport:</label>
+        <input type="text" id="origin" name="origin" placeholder="e.g. CLE"><br><br>
+
+        <label for="destination">Destination Airport:</label>
+        <input type="text" id="destination" name="destination" placeholder="e.g. ORD"><br><br>
+
+        <input type="submit" value="Search">
+    </form>
+
+    {% if routes %}
+        <h2>Matching Routes:</h2>
+        <ul>
+        {% for route in routes %}
+            <li>
+                <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
+                Route: {{ route.route }}<br>
+                Altitude: {{ route.altitude or 'N/A' }}<br>
+                Notes: {{ route.notes or 'N/A' }}
+            </li><br>
+        {% endfor %}
+        </ul>
+    {% elif searched %}
+        <p>No matching routes found.</p>
+    {% endif %}
+</body>
+</html>
