@@ -18,8 +18,10 @@ def refs():
 
 @app.route('/search', methods=['GET','POST'])
 def search():
+
     origin = request.args.get('origin','').upper()
     destination = request.args.get('destination','').upper()
+    
     routes = []
     conn = sqlite3.connect('routes.db')
     cursor = conn.cursor()
@@ -43,25 +45,32 @@ def search():
         cursor.execute("""
             SELECT * FROM routes
             WHERE destination = ?
+            ORDER BY origin ASC
         """, (destination,))
 
     else:
-        cursor.execute("SELECT * FROM routes")
+        cursor.execute(f"SELECT * FROM routes ORDER BY origin ASC, destination ASC")
     
     rows = cursor.fetchall()
     conn.close()
 
     for row in rows:
-        display_origin = origin if origin and origin in row[3] else row[0]
+        route_origin = row[0]
+        route_notes = row[4]
+
+        if origin and origin in route_notes:
+            route_origin = origin
+        
+
         routes.append({
-            'origin': display_origin,
+            'origin': route_origin,
             'destination': row[1],
             'route': row[2],
             'altitude': row[3],
-            'notes': row[4]
+            'notes': route_notes,
         })
-    return render_template("search.html", routes=routes)
-    
+    searched = True
+    return render_template("search.html", routes=routes, searched=searched)    
 
 if __name__ == "__main__":
     app.run()

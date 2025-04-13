@@ -11,6 +11,7 @@
         <label for="destination">Destination Airport:</label><br>
         <input type="text" id="destination" name="destination" placeholder="e.g. ORD"><br><br>
 
+
         <input type="submit" value="search">
     </form>
 
@@ -20,15 +21,50 @@
         {% for route in routes %}
             <li>
                 <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
-                Route: {{ route.route }}<br>
+                Route: {{ route.route }}
+                <button class="copy-btn" 
+                    data-clipboard-text="{{ route.route }}">
+                    <i class="fas fa-copy"></i> Copy Route
+                </button><br>
                 Altitude: {{ route.altitude or 'No altitude restrictions' }}<br>
                 Notes: <span>{{ route.notes | safe or 'N/A' }}</span>
+                
             </li><br>
         {% endfor %}
         </ul>
     {% elif searched %}
         <p>No matching routes found.</p>
     {% endif %}
-</body>
-</html>
+
+
+
+<!-- Make sure Clipboard.js is loaded at the bottom of the body -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Clipboard.js once the DOM is ready
+        var clipboard = new ClipboardJS('.copy-btn');
+        
+        clipboard.on('success', function(e) {
+            // Change the button text to 'Copied!' upon success
+            e.trigger.innerText = 'Copied!';
+
+            // Reset the button text back to 'Copy Route' after 2 seconds
+            setTimeout(function() {
+                e.trigger.innerText = 'Copy Route';
+            }, 2000);
+
+            // Optionally, you can remove the alert here
+            // alert('Route copied to clipboard!');
+        });
+
+        clipboard.on('error', function(e) {
+            // You can remove the alert here if you don't want to show anything
+            // alert('Oops, unable to copy!');
+        });
+    });
+</script>
+
+
 {% endblock %}
