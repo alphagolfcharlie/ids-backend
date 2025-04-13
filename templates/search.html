@@ -1,21 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Flight Route Search</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block content %}
+
     <h1>Search Flight Routes</h1>
 
     <form method="GET" action="/search">
-        <label for="origin">Origin Airport:</label>
+        <label for="origin">Origin Airport:</label><br>
         <input type="text" id="origin" name="origin" placeholder="e.g. CLE"><br><br>
 
-        <label for="destination">Destination Airport:</label>
+        <label for="destination">Destination Airport:</label><br>
         <input type="text" id="destination" name="destination" placeholder="e.g. ORD"><br><br>
 
-        <input type="submit" value="Search">
+        <input type="submit" value="search">
     </form>
 
     {% if routes %}
@@ -25,8 +21,8 @@
             <li>
                 <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
                 Route: {{ route.route }}<br>
-                Altitude: {{ route.altitude or 'N/A' }}<br>
-                Notes: {{ route.notes or 'N/A' }}
+                Altitude: {{ route.altitude or 'No altitude restrictions' }}<br>
+                Notes: <span>{{ route.notes | safe or 'N/A' }}</span>
             </li><br>
         {% endfor %}
         </ul>
@@ -35,3 +31,4 @@
     {% endif %}
 </body>
 </html>
+{% endblock %}

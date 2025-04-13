@@ -1,0 +1,192 @@
+/* General styles for the body and text */
+body {
+    font-family: Arial, sans-serif;
+    color: #ffffff; /* White text for contrast with dark background */
+    background-color: #0f172a; /* Very dark blue background to match the reference site */
+    margin: 0;
+    padding: 0;
+}
+
+
+
+/* Navbar styles */
+.navbar {
+    background-color: #003366; /* Dark blue background */
+    padding: 10px 0;
+    position: sticky;
+    top: 0;
+    width: 100%;
+    z-index: 1000;
+}
+
+.navbar-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar-brand {
+    font-size: 24px;
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.navbar-links {
+    display: flex;  /* Align the links horizontally */
+}
+
+.navbar-links a {
+    color: #fff;
+    text-decoration: none;
+    margin-left: 20px;
+    font-size: 18px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.navbar-links a:hover {
+    background-color: #ffcc00;  /* Yellow on hover */
+    color: #003366;  /* Dark blue text on hover */
+}
+
+/* Mobile responsive navbar */
+@media (max-width: 768px) {
+    .navbar-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .navbar-links {
+        margin-top: 10px;
+        display: block;
+    }
+
+    .navbar-links a {
+        margin: 5px 0;
+    }
+}
+
+h1 {
+    color: #ffffff; /* White color for the main heading */
+    text-align: center;
+    padding-top: 20px;
+}
+
+h2 {
+    color: #ffffff; /* White color for secondary headings */
+    margin-left: 20px;
+}
+
+label {
+    color: white !important; /* White color for labels */
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: block;
+}
+
+/* Container to hold input and button */
+.form-container {
+    display: flex;
+    justify-content: center; /* Centers input and button horizontally */
+    align-items: center;     /* Optional: Centers vertically if needed */
+    margin-top: 50px;        /* Optional: Adds space above the search bar */
+    padding: 20px;           /* Adds padding inside the container */
+    border: 2px solid #ffffff; /* Adds a border with a specific color (blue) */
+    border-radius: 10px;     /* Adds rounded corners */
+    flex-direction: column;  /* Stack the form items vertically */
+    width: 320px;            /* Fixed width for the form */
+}
+
+/* Style for individual form items (label + input) */
+.form-item {
+    margin-bottom: 15px;  /* Space between label + input */
+    width: 100%;  /* Ensures the label and input fill the width */
+}
+
+label {
+    display: block;        /* Makes the label behave like a block element (text on top) */
+    margin-bottom: 5px;    /* Adds space between the label and input */
+    font-size: 14px;       /* Optional: Adjusts font size of the label */
+    color: #333;           /* Optional: Change label text color */
+}
+
+input[type="text"] {
+    color: #333333;
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    padding: 10px 15px;    /* Padding to make the input look smaller */
+    border-radius: 5px;
+    width: 100%;           /* Makes the input fill the container */
+    font-size: 16px;
+    box-sizing: border-box; /* Ensures padding is inside the width */
+    height: 40px;          /* Smaller height */
+}
+
+input[type="submit"] {
+    background-color: #0066cc;
+    color: white;
+    border: 1px solid #cccccc;
+    padding: 12px 20px;    /* Padding for button */
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 16px;
+    width: 100%;           /* Button takes full width */
+    height: 50px;          /* Match button height with input box */
+    box-sizing: border-box;
+}
+
+input[type="submit"]:hover {
+    background-color: #005bb5; /* Darker blue on hover */
+}
+
+
+
+ul {
+    list-style-type: none; /* Remove bullet points */
+    padding: 0;
+}
+
+li {
+    margin-bottom: 15px;
+    margin-left: 20px;
+    background-color: #0f172a; /* Dark blue background for each list item */
+    padding: 15px;
+    border-radius: 5px;
+    border: 2px solid #164285; /* Adds a border with a specific color (blue) */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    color: #ffffff; /* White text color for list items */
+}
+
+/* Styling for the "No results" message */
+.no-results {
+    color: #ff0000; /* Red color for "No results found" */
+    font-weight: bold;
+    text-align: center;
+    font-size: 18px;
+}
+
+/* Additional styling for links, if any */
+a {
+    color: #0066cc; /* Blue for links */
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Centering the form on the page */
+form {
+    width: 50%;
+    margin: 0 auto;
+    background-color: #0f172a; /* Dark blue background for the form */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}

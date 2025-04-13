@@ -12,9 +12,9 @@ def init_db():
             notes TEXT
         )
     ''')
-    routes = [("CLE", "ORD", "GTLKE4 DAIFE WATSN WATSN4", "", ""),
-    ("CLE", "MDW", "GTLKE4 BAGEL PANGG5", "", ""),
-    ("CLE", "MKE", "GTLKE4 ALPHE PEGEE GETCH LYSTR SUDDS", "", ""),
+    routes = [("CLE", "ORD", "GTLKE4 DAIFE WATSN WATSN4", "", "FROM CLEVELAND METRO(CLE,CGF,BKL,LNN,LPR)"),
+    ("CLE", "MDW", "GTLKE4 BAGEL PANGG5", "", "FROM CLEVELAND METRO(CLE,CGF,BKL,LNN,LPR)"),
+    ("CLE", "MKE", "GTLKE4 ALPHE PEGEE GETCH LYSTR SUDDS", "", "FROM CLEVELAND METRO(CLE,CGF,BKL,LNN,LPR)"),
     ("CLE", "BOS", "PFLYD1 JASEE JHW Q82 PONCT JFUND2", "", ""),
     ("CLE", "BDL", "PFLYD1 JASEE JHW Q82 MEMMS WILET STELA1", "", ""),
     ("CLE", "BWI", "KKIDS1 NUSMM ANTHM5", "", ""),
@@ -28,6 +28,7 @@ def init_db():
     ("CLE", "MSP", "GTLKE4 ALPHE VIO KAMMA KKILR3", "", "Through ZAU"),
     ("CLE", "EWR", "PFLYD1 DORET J584 SLT FQM3", "", ""),
     ("CLE", "JFK", "PFLYD1 JASEE JHW J70 LVZ LENDY8", "", ""),
+    ("BKL", "JFK", "MYCAR4 MYCAR JHW J70 LVZ LENDY8", "", ""),
     ("CLE", "LGA", "PFLYD1 MAAJR ETG MIP4", "", ""),
     ("CLE", "PHL", "KKIDS1 EWC JST BOJID4", "", ""),
     ("CLE", "YYZ", "PFLYD1 PATRC FINGL NUBER6", "FL190B", ""),
@@ -66,6 +67,7 @@ def init_db():
     ("DTW", "IND", "SNDRS3 TORRR SNKPT CLANG7", "FL220B", ""),
     ("DTW", "SDF", "CLVIN3 CLVIN RINTE DLAMP8", "FL280B", ""),
     ("DTW", "MSP", "MIGGY3 SLLAP Q440 IDIOM MUSCL3", "", "Preferred"),
+    ("DTW", "MSP", "KAYLN3 SMUUV KAMMA KKILR3", "", "Through ZAU"),
     ("DTW", "EWR", "KAYLN3 SMUUV KAMMA KKILR3", "", "Through ZAU"),
     ("DTW", "JFK", "PAVYL3 MRDOC HOXIE J70 LVZ LENDY8", "", ""),
     ("DTW", "LGA", "PAVYL3 ESSBE CXR ETG MIP4", "", ""),
