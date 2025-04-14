@@ -19,9 +19,9 @@
         <h2>Matching Routes:</h2>
         <ul>
         {% for route in routes %}
-            <li class="{% if not route.isActive %} inactive-route {% endif %}">
+            <li class="{% if not route.isActive and route.hasFlows %} inactive-route {% endif %}">
                 <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
-                {% if route.isActive %}
+                {% if route.isActive and route.hasFlows %}
                     <span style="background-color: green; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;"title="This route is currently active real-world for the selected arrival airport's flow.">Route Active</span>
                 {% endif %}
                 Route: {{ route.route }}

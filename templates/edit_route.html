@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ action }} Route</h1>
+<form method="post">
+    Origin: <input type="text" name="origin" value="{{ route[0] if route else '' }}"><br><br>
+    Destination: <input type="text" name="destination" value="{{ route[1] if route else '' }}"><br><br>
+    Route: <input type="text" name="route" value="{{ route[2] if route else '' }}"><br><br>
+    Altitude: <input type="text" name="altitude" value="{{ route[3] if route else '' }}"><br><br>
+    Notes: <input type="text" name="notes" value="{{ route[4] if route else '' }}"><br><br>
+    <input type="submit" value="{{ action }} Route">
+</form>
+<a href="{{ url_for('admin_routes') }}">Back to List</a>
+{% endblock %}

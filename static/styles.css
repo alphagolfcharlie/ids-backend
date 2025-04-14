@@ -11,7 +11,7 @@ body {
 
 /* Navbar styles */
 .navbar {
-    background-color: #003366; /* Dark blue background */
+    background-color: #344767; /* Dark blue background */
     padding: 10px 0;
     position: sticky;
     top: 0;
@@ -215,3 +215,4 @@ form {
     opacity: 0.5; /* Dim the route */
     color: #aaa;  /* Grey text */
 }
+

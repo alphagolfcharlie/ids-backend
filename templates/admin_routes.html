@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 style="text-align: center;">Route Manager</h1>
+
+<div style="width: 80%; margin: 0 auto;">
+
+    <!-- Add New Route Button aligned to left -->
+    <div style="text-align: left; margin-bottom: 15px;">
+        <a href="{{ url_for('add_route') }}" style="text-decoration: none; font-weight: bold; padding: 6px 12px; background-color: #007bff; color: white; border-radius: 4px;">+ Add New Route</a>
+    </div>
+
+    <!-- Table centered -->
+    <div style="display: flex; justify-content: center;">
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+            <thead style="background-color: #344767;">
+                <tr>
+                    <th>Origin</th>
+                    <th>Destination</th>
+                    <th>Route</th>
+                    <th>Altitude</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in routes %}
+                <tr>
+                    <td>{{ row[1] }}</td>
+                    <td>{{ row[2] }}</td>
+                    <td>{{ row[3] }}</td>
+                    <td>{{ row[4] }}</td>
+                    <td>{{ row[5] }}</td>
+                    <td>
+                        <a href="{{ url_for('edit_route', route_id=row[0]) }}">Edit</a> |
+                        <a href="{{ url_for('delete_route', route_id=row[0]) }}" onclick="return confirm('Delete this route?');">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+{% endblock %}
