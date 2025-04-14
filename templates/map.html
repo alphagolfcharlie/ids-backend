@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Map View{% endblock %}
+
+{% block content %}
+<h2 style="text-align: center;">OpenStreetMap View</h2>
+
+<!-- Map container -->
+<div id="map" style="height: 1200px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
+
+<!-- Leaflet CSS -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+/>
+
+<!-- Leaflet JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js">
+</script>
+
+<script>
+    const cleCenter = [41.4117, -81.8498];
+    const map = L.map('map').setView(cleCenter, 7);
+  
+    const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+    });
+    dark.addTo(map);
+    
+    const loadedSectors = {};
+  
+    function loadSector(url, options = {}) {
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const layer = L.geoJSON(data, {
+            style: {
+              color: options.color || 'blue',
+              weight: 2,
+              fillOpacity: 0.2
+            }
+          }).addTo(map);
+  
+          if (options.label) {
+            layer.bindPopup(options.label);
+          }
+  
+          loadedSectors[url] = layer;
+        })
+        .catch(error => {
+          console.error("Failed to load sector:", url, error);
+        });
+    }
+  
+    // Load your sector
+    loadSector('/static/sectors/high/a2h.geojson', { label: 'Area 2 High', color: 'red' });
+    loadSector('/static/sectors/high/a1h.geojson', { label: 'Area 1 High', color: 'red' });
+  
+  </script>
+
+{% endblock %}

@@ -217,6 +217,9 @@ def edit_route(route_id):
     conn.close()
     return render_template("edit_route.html", route=row, action="Edit")
 
+@app.route('/map')
+def show_map():
+    return render_template("map.html")
 
 if __name__ == "__main__":
     app.run()
