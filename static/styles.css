@@ -210,3 +210,8 @@ form {
 .copy-btn:hover {
     text-decoration: underline;
 }
+
+.inactive-route {
+    opacity: 0.5; /* Dim the route */
+    color: #aaa;  /* Grey text */
+}

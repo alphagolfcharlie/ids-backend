@@ -19,8 +19,11 @@
         <h2>Matching Routes:</h2>
         <ul>
         {% for route in routes %}
-            <li>
+            <li class="{% if not route.isActive %} inactive-route {% endif %}">
                 <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
+                {% if route.isActive %}
+                    <span style="background-color: green; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;"title="This route is currently active real-world for the selected arrival airport's flow.">Route Active</span>
+                {% endif %}
                 Route: {{ route.route }}
                 <button class="copy-btn" 
                     data-clipboard-text="{{ route.route }}">
@@ -35,8 +38,6 @@
     {% elif searched %}
         <p>No matching routes found.</p>
     {% endif %}
-
-
 
 <!-- Make sure Clipboard.js is loaded at the bottom of the body -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
@@ -65,6 +66,8 @@
         });
     });
 </script>
+
+
 
 
 {% endblock %}
