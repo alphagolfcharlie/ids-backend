@@ -5,7 +5,10 @@
 <h2 style="text-align: center;">OpenStreetMap View</h2>
 
 <!-- Map container -->
-<div id="map" style="height: 1200px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
+<div id="map" style="height: 800px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
+
+<!-- Controller Splits List Container -->
+<div id="controllerList" class="controller-list-container"></div>
 
 <!-- Leaflet CSS -->
 <link
@@ -19,45 +22,191 @@
 </script>
 
 <script>
-    const cleCenter = [41.4117, -81.8498];
-    const map = L.map('map').setView(cleCenter, 7);
-  
-    const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  const cleCenter = [41.4117, -81.8498];
+  const map = L.map('map').setView(cleCenter, 7);
+
+  const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19
-    });
-    dark.addTo(map);
-    
-    const loadedSectors = {};
-  
-    function loadSector(url, options = {}) {
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          const layer = L.geoJSON(data, {
-            style: {
-              color: options.color || 'blue',
-              weight: 2,
-              fillOpacity: 0.2
-            }
-          }).addTo(map);
-  
-          if (options.label) {
-            layer.bindPopup(options.label);
+  });
+  dark.addTo(map);
+
+  const defaultStyle = {
+    color: 'blue',
+    weight: 2,
+    fillOpacity: 0.2
+  };
+
+  const controllerColors = [
+    '#4fc3f7', '#81c784', '#ffb74d', '#f06292',
+    '#9575cd', '#aed581', '#fdd835', '#7986cb'
+  ];
+
+  const loadedSectors = {};
+  const sectorToLayer = {};
+  let controllers = [{ name: "Controller 1", sectors: [], color: controllerColors[0] }];
+  let currentControllerIndex = 0;
+  let editing = false;
+
+  function toggleEditing() {
+    editing = !editing;
+    document.getElementById('editingStatus').innerText = editing ? "Editing ON" : "Editing OFF";
+    renderControllerList();
+  }
+
+  function loadSector(url, options = {}) {
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        const geojson = L.geoJSON(data, {
+          style: function () {
+            return {
+              color: options.color || defaultStyle.color,
+              weight: defaultStyle.weight,
+              fillOpacity: defaultStyle.fillOpacity
+            };
+          },
+          onEachFeature: function (feature, layer) {
+            const area = feature.properties.area || options.label || 'Unknown Area';
+            const sector = feature.properties.sector || 'Unnamed Sector';
+            const frequency = feature.properties.frequency || '';
+            const position = feature.properties.position || '';
+            const id = `${area} - ${sector}`;
+
+            layer.bindPopup(id);
+            layer.on('click', function () {
+              if (!editing) return;
+              const currentController = controllers[currentControllerIndex];
+
+              // Prevent duplicate sector assignments
+              if (controllers.some(ctrl => ctrl.sectors.find(s => s.id === id))) return;
+
+              const newSector = {
+                id,
+                layer,
+                area,
+                sector,
+                frequency,
+                position
+              };
+
+              currentController.sectors.push(newSector);
+              layer.setStyle({
+                color: currentController.color,
+                weight: 3,
+                fillOpacity: 0.6
+              });
+              renderControllerList();
+            });
+
+            sectorToLayer[id] = layer;
           }
-  
-          loadedSectors[url] = layer;
-        })
-        .catch(error => {
-          console.error("Failed to load sector:", url, error);
-        });
-    }
-  
-    // Load your sector
-    loadSector('/static/sectors/high/a2h.geojson', { label: 'Area 2 High', color: 'red' });
-    loadSector('/static/sectors/high/a1h.geojson', { label: 'Area 1 High', color: 'red' });
-  
-  </script>
+        }).addTo(map);
+        loadedSectors[url] = geojson;
+      })
+      .catch(error => {
+        console.error("Failed to load sector:", url, error);
+      });
+  }
+
+  function nextController() {
+    const color = controllerColors[controllers.length % controllerColors.length];
+    controllers.push({ name: `Controller ${controllers.length + 1}`, sectors: [], color });
+    currentControllerIndex = controllers.length - 1;
+    renderControllerList();
+  }
+
+  function updateControllerName(index, newName) {
+    controllers[index].name = newName;
+    renderControllerList();
+  }
+
+  function updateDropdown(index, type, value) {
+    controllers[index][type] = value;
+  }
+
+  function getUniquePropertyValues(sectors, prop) {
+    const set = new Set(sectors.map(s => s[prop]).filter(Boolean));
+    return Array.from(set);
+  }
+
+  function renderControllerList() {
+    const container = document.getElementById("controllerList");
+    container.innerHTML = "";
+
+    const outer = document.createElement("div");
+    outer.className = "controller-list-container";
+
+    controllers.forEach((controller, index) => {
+      const section = document.createElement("div");
+      section.className = "controller-section";
+
+      const nameInput = document.createElement("input");
+      nameInput.value = controller.name;
+      nameInput.className = "controller-name";
+      nameInput.onchange = e => updateControllerName(index, e.target.value);
+
+      const freqLabel = document.createElement("label");
+      freqLabel.innerText = "Frequency:";
+      const freqSelect = document.createElement("select");
+      getUniquePropertyValues(controller.sectors, "frequency").forEach(freq => {
+        const opt = document.createElement("option");
+        opt.value = freq;
+        opt.textContent = freq;
+        freqSelect.appendChild(opt);
+      });
+      freqSelect.onchange = e => updateDropdown(index, "frequency", e.target.value);
+
+      const posLabel = document.createElement("label");
+      posLabel.innerText = "Position:";
+      const posSelect = document.createElement("select");
+      getUniquePropertyValues(controller.sectors, "position").forEach(pos => {
+        const opt = document.createElement("option");
+        opt.value = pos;
+        opt.textContent = pos;
+        posSelect.appendChild(opt);
+      });
+      posSelect.onchange = e => updateDropdown(index, "position", e.target.value);
+
+      const sectorList = document.createElement("div");
+      sectorList.className = "sector-list";
+      controller.sectors.forEach(sector => {
+        const item = document.createElement("div");
+        item.className = "sector-item";
+        item.innerText = sector.id;
+        sectorList.appendChild(item);
+      });
+
+      section.appendChild(nameInput);
+      section.appendChild(freqLabel);
+      section.appendChild(freqSelect);
+      section.appendChild(posLabel);
+      section.appendChild(posSelect);
+      section.appendChild(sectorList);
+      outer.appendChild(section);
+    });
+
+    container.appendChild(outer);
+  }
+
+  // Add your geojson loads here
+  loadSector('/static/sectors/high/a1h.geojson', { label: 'Area 1 High', color: 'yellow' });
+  loadSector('/static/sectors/high/a2hpoly.geojson', { label: 'Area 2 High', color: 'blue' });
+  loadSector('/static/sectors/high/a3hpoly.geojson', { label: 'Area 3 High', color: 'green' });
+  loadSector('/static/sectors/high/a4hpoly.geojson', { label: 'Area 4 High', color: 'red' });
+  loadSector('/static/sectors/high/a5hpoly.geojson', { label: 'Area 5 High', color: 'orange' });
+  loadSector('/static/sectors/high/a6hpoly.geojson', { label: 'Area 6 High', color: 'pink' });
+  loadSector('/static/sectors/high/a7hpoly.geojson', { label: 'Area 7 High', color: 'cyan' });
+
+</script>
+
+
+<!-- UI Buttons -->
+<div style="text-align: center; margin: 20px;">
+  <button id="editModeButton" onclick="toggleEditing()">✏️ Edit Splits</button>
+  <button onclick="nextController()">➡️ Next Controller</button>
+  <span id="currentControllerDisplay" style="margin-left: 15px;"></span>
+</div>
 
 {% endblock %}
