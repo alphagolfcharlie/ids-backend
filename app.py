@@ -191,7 +191,6 @@ def delete_route(route_id):
     conn.close()
     return redirect(url_for('admin_routes'))
 
-
 @app.route('/admin/routes/edit/<int:route_id>', methods=['GET', 'POST'])
 @requires_auth
 def edit_route(route_id):
@@ -220,6 +219,108 @@ def edit_route(route_id):
 @app.route('/map')
 def show_map():
     return render_template("map.html")
+
+@app.route('/crossings')
+def crossings():
+
+    destination = request.args.get('destination','').upper()
+    
+    crossings = []
+    conn = sqlite3.connect('crossings.db')
+    cursor = conn.cursor()
+
+    if destination:
+        cursor.execute("""
+            SELECT * FROM crossings
+            WHERE destination = ?""", (destination,))
+
+    else:
+        cursor.execute(f"SELECT * FROM crossings ORDER BY destination ASC")
+    
+    rows = cursor.fetchall()
+    conn.close()
+
+    for row in rows:
+        
+        crossings.append({
+            'destination': row[0],
+            'fix': row[1],
+            'restriction': row[2],
+            'notes': row[3],
+            'artcc':row[4]
+        })
+    
+    searched = True
+    return render_template("crossings.html", crossings=crossings)    
+
+
+@app.route('/admin/crossings')
+@requires_auth
+def admin_crossings():
+    conn = sqlite3.connect('crossings.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT rowid, * FROM crossings ORDER BY destination ASC")
+    rows= cursor.fetchall()
+    conn.close()
+    return render_template("admin_crossings.html",crossings=rows)
+
+
+@app.route('/admin/crossings/add', methods=['GET', 'POST'])
+@requires_auth
+def add_crossing():
+    if request.method == 'POST':
+        destination = request.form['destination']
+        fix = request.form['fix']
+        restriction = request.form['restriction']
+        notes = request.form['notes']
+        artcc = request.form['artcc']
+
+        conn = sqlite3.connect('crossings.db')
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO crossings (destination, fix, restriction, notes, artcc) VALUES (?, ?, ?, ?, ?)",
+                       (destination, fix, restriction, notes, artcc))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('admin_crossings'))
+    return render_template("edit_crossing.html", action="Add")
+
+
+
+@app.route('/admin/crossings/delete/<int:crossing_id>')
+@requires_auth
+def delete_crossing(crossing_id):
+    conn = sqlite3.connect('crossings.db')
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM routes WHERE rowid=?", (crossing_id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('admin_crossings'))
+
+@app.route('/admin/crossings/edit/<int:crossing_id>', methods=['GET', 'POST'])
+@requires_auth
+def edit_crossing(crossing_id):
+    conn = sqlite3.connect('crossings.db')
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        destination = request.form['destination']
+        fix = request.form['fix']
+        restriction = request.form['restriction']
+        notes = request.form['notes']
+        artcc = request.form['artcc']
+
+        cursor.execute("""
+            UPDATE crossings SET destination=?, fix=?, restriction=?, notes=?, artcc=? 
+            WHERE rowid=?
+        """, (destination, fix, restriction, notes, artcc))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('admin_crossings'))
+    
+    cursor.execute("SELECT * FROM crossings WHERE rowid=?", (crossing_id))
+    row = cursor.fetchone()
+    conn.close()
+    return render_template("edit_crossing.html",crossing=row, action="Edit")
 
 if __name__ == "__main__":
     app.run()

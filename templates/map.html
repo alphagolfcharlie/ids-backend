@@ -45,15 +45,6 @@
 
   const loadedSectors = {};
   const sectorToLayer = {};
-  let controllers = [{ name: "Controller 1", sectors: [], color: controllerColors[0] }];
-  let currentControllerIndex = 0;
-  let editing = false;
-
-  function toggleEditing() {
-    editing = !editing;
-    document.getElementById('editingStatus').innerText = editing ? "Editing ON" : "Editing OFF";
-    renderControllerList();
-  }
 
   function loadSector(url, options = {}) {
     fetch(url)
@@ -108,86 +99,6 @@
       .catch(error => {
         console.error("Failed to load sector:", url, error);
       });
-  }
-
-  function nextController() {
-    const color = controllerColors[controllers.length % controllerColors.length];
-    controllers.push({ name: `Controller ${controllers.length + 1}`, sectors: [], color });
-    currentControllerIndex = controllers.length - 1;
-    renderControllerList();
-  }
-
-  function updateControllerName(index, newName) {
-    controllers[index].name = newName;
-    renderControllerList();
-  }
-
-  function updateDropdown(index, type, value) {
-    controllers[index][type] = value;
-  }
-
-  function getUniquePropertyValues(sectors, prop) {
-    const set = new Set(sectors.map(s => s[prop]).filter(Boolean));
-    return Array.from(set);
-  }
-
-  function renderControllerList() {
-    const container = document.getElementById("controllerList");
-    container.innerHTML = "";
-
-    const outer = document.createElement("div");
-    outer.className = "controller-list-container";
-
-    controllers.forEach((controller, index) => {
-      const section = document.createElement("div");
-      section.className = "controller-section";
-
-      const nameInput = document.createElement("input");
-      nameInput.value = controller.name;
-      nameInput.className = "controller-name";
-      nameInput.onchange = e => updateControllerName(index, e.target.value);
-
-      const freqLabel = document.createElement("label");
-      freqLabel.innerText = "Frequency:";
-      const freqSelect = document.createElement("select");
-      getUniquePropertyValues(controller.sectors, "frequency").forEach(freq => {
-        const opt = document.createElement("option");
-        opt.value = freq;
-        opt.textContent = freq;
-        freqSelect.appendChild(opt);
-      });
-      freqSelect.onchange = e => updateDropdown(index, "frequency", e.target.value);
-
-      const posLabel = document.createElement("label");
-      posLabel.innerText = "Position:";
-      const posSelect = document.createElement("select");
-      getUniquePropertyValues(controller.sectors, "position").forEach(pos => {
-        const opt = document.createElement("option");
-        opt.value = pos;
-        opt.textContent = pos;
-        posSelect.appendChild(opt);
-      });
-      posSelect.onchange = e => updateDropdown(index, "position", e.target.value);
-
-      const sectorList = document.createElement("div");
-      sectorList.className = "sector-list";
-      controller.sectors.forEach(sector => {
-        const item = document.createElement("div");
-        item.className = "sector-item";
-        item.innerText = sector.id;
-        sectorList.appendChild(item);
-      });
-
-      section.appendChild(nameInput);
-      section.appendChild(freqLabel);
-      section.appendChild(freqSelect);
-      section.appendChild(posLabel);
-      section.appendChild(posSelect);
-      section.appendChild(sectorList);
-      outer.appendChild(section);
-    });
-
-    container.appendChild(outer);
   }
 
   // Add your geojson loads here
