@@ -19,7 +19,7 @@
         {% for crossing in crossings %}
                 <li class="card">
                     <strong>{{ crossing.destination }}</strong><br>
-                    <span>Boundary Fix:</span> {{ crossing.fix }}<br>
+                    <span>Boundary Fix:</span> {{ crossing.fix or 'N/A' }}<br>
                     <span>Restriction:</span> {{ crossing.restriction }}<br>
                     <span>Notes:</span> {{ crossing.notes or 'N/A' }}<br>
                     <span>ARTCC:</span> {{ crossing.artcc }}
