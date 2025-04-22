@@ -49,7 +49,7 @@ def get_flow(airport_code):
 
 @app.route("/")
 def home():
-    return render_template("index2.html")
+    return render_template("index.html")
 
 @app.route("/SOPs")
 def SOPs():
@@ -277,7 +277,7 @@ def add_crossing():
 
         conn = sqlite3.connect('crossings.db')
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO crossings (destination, fix, restriction, notes, artcc) VALUES (?, ?, ?, ?, ?)",
+        cursor.execute("INSERT INTO crossings (destination, bdry_fix, restriction, notes, artcc) VALUES (?, ?, ?, ?, ?)",
                        (destination, fix, restriction, notes, artcc))
         conn.commit()
         conn.close()
@@ -310,14 +310,15 @@ def edit_crossing(crossing_id):
         artcc = request.form['artcc']
 
         cursor.execute("""
-            UPDATE crossings SET destination=?, fix=?, restriction=?, notes=?, artcc=? 
+            UPDATE crossings SET destination=?, bdry_fix=?, restriction=?, notes=?, artcc=? 
             WHERE rowid=?
-        """, (destination, fix, restriction, notes, artcc))
+        """, (destination, fix, restriction, notes, artcc, crossing_id))
+
         conn.commit()
         conn.close()
         return redirect(url_for('admin_crossings'))
     
-    cursor.execute("SELECT * FROM crossings WHERE rowid=?", (crossing_id))
+    cursor.execute("SELECT * FROM crossings WHERE rowid=?", (crossing_id,))
     row = cursor.fetchone()
     conn.close()
     return render_template("edit_crossing.html",crossing=row, action="Edit")
