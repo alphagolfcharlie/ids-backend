@@ -47,7 +47,6 @@ def getCoords():
     for row in filtere:
         aircraft_lat, aircraft_lon = row[4], row[5]
         d = finddist(target_lat, target_lon, aircraft_lat, aircraft_lon)
-        print(f"Callsign: {row[0]}, Departure: {row[1]}, Arrival: {row[2]}, Distance to DJB: {d}, Latitude: {aircraft_lat}, Longitude: {aircraft_lon}")
         acarr.append((row[0], row[1], row[2], d, row[3], aircraft_lat, aircraft_lon))
 
     structured = []

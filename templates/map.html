@@ -7,6 +7,22 @@
 <!-- Map container -->
 <div id="map" style="height: 900px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
 
+<button onclick="openSplitEditor()" style="margin: 10px;">Create New Split</button>
+
+<div id="splitEditor" style="display:none; padding: 15px; background: white; border: 1px solid black; margin: 20px;">
+  <h3>Create a Split</h3>
+  
+  <label>Split Name:</label><br>
+  <input type="text" id="splitNameInput"><br><br>
+
+  <div id="sectorCheckboxes"></div>
+
+  <br>
+  <button onclick="confirmSplit()">Save Split</button>
+  <button onclick="cancelSplitEditor()">Cancel</button>
+</div>
+
+
 <!-- Controller Splits List Container -->
 <div id="controllerList" class="controller-list-container"></div>
 
@@ -45,6 +61,7 @@
 
   const loadedSectors = {};
   const sectorToLayer = {};
+  const availableSectors = [];
 
   function loadSector(url, options = {}) {
     fetch(url)
@@ -61,9 +78,20 @@
           onEachFeature: function (feature, layer) {
             const area = feature.properties.area || options.label || 'Unknown Area';
             const sector = feature.properties.sector || 'Unnamed Sector';
-            const frequency = feature.properties.frequency || '';
+            const frequency = feature.properties.freq || '';
             const position = feature.properties.position || '';
             const id = `${area} - ${sector}`;
+
+            
+
+            availableSectors.push({
+              id,
+              area,
+              sector,
+              frequency,
+              position,
+              layer
+            })
 
             layer.bindPopup(id);
             layer.on('click', function () {
@@ -109,6 +137,73 @@
   loadSector('/static/sectors/high/a5hpoly.geojson', { label: 'Area 5 High', color: 'green' });
   loadSector('/static/sectors/high/a6hpoly.geojson', { label: 'Area 6 High', color: 'green' });
   loadSector('/static/sectors/high/a7hpoly.geojson', { label: 'Area 7 High', color: 'green' });
+
+</script>
+
+<script>
+  function openSplitEditor() {
+  const container = document.getElementById('sectorCheckboxes');
+  container.innerHTML = '';
+
+  availableSectors.forEach(sector => {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = sector.id;
+    checkbox.id = `sector-${sector.id}`;
+
+    const label = document.createElement('label');
+    label.htmlFor = checkbox.id;
+    label.innerText = `${sector.sector} (${sector.frequency})`;
+
+    container.appendChild(checkbox);
+    container.appendChild(label);
+    container.appendChild(document.createElement('br'));
+  });
+
+  document.getElementById('splitEditor').style.display = 'block';
+}
+
+function confirmSplit() {
+  const selectedSectorIds = [];
+  const selectedSectors = [];
+
+  availableSectors.forEach(sector => {
+    const checkbox = document.getElementById(`sector-${sector.id}`);
+    if (checkbox.checked) {
+      selectedSectorIds.push(sector.id);
+      selectedSectors.push(sector);
+    }
+  });
+
+  const splitName = document.getElementById('splitNameInput').value || "Unnamed Split";
+
+  if (selectedSectors.length === 0) {
+    alert("Select at least one sector!");
+    return;
+  }
+
+  // Default primary sector is the first one
+  const primarySector = selectedSectors[0];
+  const primaryFrequency = primarySector.frequency;
+
+  const newSplit = {
+    name: splitName,
+    primarySector: primarySector.sector,
+    frequency: primaryFrequency,
+    sectors: selectedSectorIds
+  };
+
+  console.log("Created Split:", newSplit);
+  alert(`Created split "${splitName}" with ${selectedSectorIds.length} sectors.`);
+
+  document.getElementById('splitEditor').style.display = 'none';
+
+  // Later: add this new split to a display list or apply it
+}
+
+function cancelSplitEditor() {
+  document.getElementById('splitEditor').style.display = 'none';
+}
 
 </script>
 
