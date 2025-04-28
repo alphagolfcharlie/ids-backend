@@ -61,11 +61,19 @@ def refs():
 
 
 @app.route('/search', methods=['GET','POST'])
+
 def search():
 
     origin = request.args.get('origin','').upper()
     destination = request.args.get('destination','').upper()
     
+    routes = searchroute(origin, destination)
+    
+    searched = True
+    return render_template("search.html", routes=routes, searched=searched)    
+
+
+def searchroute(origin, destination):
     routes = []
     conn = sqlite3.connect('routes.db')
     cursor = conn.cursor()
@@ -129,9 +137,20 @@ def search():
             'isActive':isActive,
             'hasFlows':hasFlows
         })
-    
-    searched = True
-    return render_template("search.html", routes=routes, searched=searched)    
+    return routes
+
+
+def validateRoute(origin, destination, route):
+
+    storedRoute = searchroute(origin, destination)
+    if storedRoute is None:
+        return("Error")
+    else:
+        if storedRoute == route:
+            print("Route is valid")
+        else:
+            print("Route not valid. Database route is",route)
+
 
 def check_auth(username, password): 
     return username == 'admin' and password == 'password'
