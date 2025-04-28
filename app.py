@@ -2,6 +2,8 @@ from flask import Flask, redirect, url_for, render_template, request, jsonify, s
 import requests, re, sqlite3
 from datetime import timedelta
 from functools import wraps
+from math import radians, cos, sin, asin, sqrt
+from dist import getCoords
 
 app = Flask(__name__)
 
@@ -59,7 +61,6 @@ def SOPs():
 def refs():
     return redirect("https://refs.clevelandcenter.org")
 
-
 @app.route('/search', methods=['GET','POST'])
 
 def search():
@@ -71,7 +72,6 @@ def search():
     
     searched = True
     return render_template("search.html", routes=routes, searched=searched)    
-
 
 def searchroute(origin, destination):
     routes = []
@@ -139,7 +139,6 @@ def searchroute(origin, destination):
         })
     return routes
 
-
 def validateRoute(origin, destination, route):
 
     storedRoute = searchroute(origin, destination)
@@ -150,7 +149,6 @@ def validateRoute(origin, destination, route):
             print("Route is valid")
         else:
             print("Route not valid. Database route is",route)
-
 
 def check_auth(username, password): 
     return username == 'admin' and password == 'password'
@@ -169,7 +167,6 @@ def requires_auth(f):
             return authenticate()
         return f(*args, **kwargs)
     return decorated
-
 
 @app.route('/admin/routes')
 @requires_auth
@@ -239,6 +236,13 @@ def edit_route(route_id):
 def show_map():
     return render_template("map.html")
 
+@app.route('/aircraft')
+def aircraft():
+    acarr = getCoords()
+    return jsonify(acarr)
+
+
+
 @app.route('/crossings')
 def crossings():
 
@@ -272,7 +276,6 @@ def crossings():
     searched = True
     return render_template("crossings.html", crossings=crossings)    
 
-
 @app.route('/admin/crossings')
 @requires_auth
 def admin_crossings():
@@ -282,7 +285,6 @@ def admin_crossings():
     rows= cursor.fetchall()
     conn.close()
     return render_template("admin_crossings.html",crossings=rows)
-
 
 @app.route('/admin/crossings/add', methods=['GET', 'POST'])
 @requires_auth
@@ -302,8 +304,6 @@ def add_crossing():
         conn.close()
         return redirect(url_for('admin_crossings'))
     return render_template("edit_crossing.html", action="Add")
-
-
 
 @app.route('/admin/crossings/delete/<int:crossing_id>')
 @requires_auth

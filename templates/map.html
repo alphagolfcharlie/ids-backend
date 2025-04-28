@@ -102,22 +102,52 @@
   }
 
   // Add your geojson loads here
-  loadSector('/static/sectors/high/a1h.geojson', { label: 'Area 1 High', color: 'yellow' });
-  loadSector('/static/sectors/high/a2hpoly.geojson', { label: 'Area 2 High', color: 'blue' });
+  loadSector('/static/sectors/high/a1h.geojson', { label: 'Area 1 High', color: 'green' });
+  loadSector('/static/sectors/high/a2hpoly.geojson', { label: 'Area 2 High', color: 'green' });
   loadSector('/static/sectors/high/a3hpoly.geojson', { label: 'Area 3 High', color: 'green' });
-  loadSector('/static/sectors/high/a4hpoly.geojson', { label: 'Area 4 High', color: 'red' });
-  loadSector('/static/sectors/high/a5hpoly.geojson', { label: 'Area 5 High', color: 'orange' });
-  loadSector('/static/sectors/high/a6hpoly.geojson', { label: 'Area 6 High', color: 'pink' });
-  loadSector('/static/sectors/high/a7hpoly.geojson', { label: 'Area 7 High', color: 'cyan' });
+  loadSector('/static/sectors/high/a4hpoly.geojson', { label: 'Area 4 High', color: 'green' });
+  loadSector('/static/sectors/high/a5hpoly.geojson', { label: 'Area 5 High', color: 'green' });
+  loadSector('/static/sectors/high/a6hpoly.geojson', { label: 'Area 6 High', color: 'green' });
+  loadSector('/static/sectors/high/a7hpoly.geojson', { label: 'Area 7 High', color: 'green' });
 
 </script>
 
+<script>
+  fetch('/aircraft')
+    .then(response => response.json())
+    .then(data => {
+        data.forEach(aircraft => {
+            if (aircraft.lat && aircraft.lon) {
 
-<!-- UI Buttons -->
-<div style="text-align: center; margin: 20px;">
-  <button id="editModeButton" onclick="toggleEditing()">✏️ Edit Splits</button>
-  <button onclick="nextController()">➡️ Next Controller</button>
-  <span id="currentControllerDisplay" style="margin-left: 15px;"></span>
-</div>
+                // Define your ZOB airports array
+                const zobAirports = ["KBUF", "KCLE", "KDTW", "KPIT"];
+
+                // Check if departure or destination is in ZOB airports
+                let isZobAirport = zobAirports.includes(aircraft.departure) || zobAirports.includes(aircraft.destination);
+
+                // Set the circle color based on the ZOB match
+                let circleColor = isZobAirport ? 'red' : 'blue';  // Change 'red' to any color you prefer
+
+                // Create the circle and set the popup
+                L.circle([aircraft.lat, aircraft.lon], {
+                    color: circleColor,  // Use the determined color here
+                    fillColor: '#30f',
+                    fillOpacity: 0.5,
+                    radius: 300
+                }).addTo(map)
+                .bindPopup(`
+                    <div style="font-size: 16px; font-weight: bold;">
+                        ${aircraft.callsign} ${aircraft.departure} ➔ ${aircraft.destination}
+                    </div>
+                    <div style="font-size: 13px; color: gray; margin-top: 5px; max-height: 100px; overflow-y: auto;">
+                        ${aircraft.route}
+                    </div>
+                `);
+            }
+        });
+    })
+    .catch(error => console.error('Error fetching aircraft data:', error));
+
+</script>
 
 {% endblock %}
