@@ -5,7 +5,7 @@
 <h2 style="text-align: center;">OpenStreetMap View</h2>
 
 <!-- Map container -->
-<div id="map" style="height: 800px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
+<div id="map" style="height: 900px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
 
 <!-- Controller Splits List Container -->
 <div id="controllerList" class="controller-list-container"></div>
@@ -123,18 +123,35 @@
                 const zobAirports = ["KBUF", "KCLE", "KDTW", "KPIT"];
 
                 // Check if departure or destination is in ZOB airports
-                let isZobAirport = zobAirports.includes(aircraft.departure) || zobAirports.includes(aircraft.destination);
+                let isZobDeparture = zobAirports.includes(aircraft.departure);
+                let isZobArrival = zobAirports.includes(aircraft.destination);
 
                 // Set the circle color based on the ZOB match
-                let circleColor = isZobAirport ? 'red' : 'blue';  // Change 'red' to any color you prefer
+                let circleColor = 'blue';  // Default color
+
+                // If it's a ZOB departure, set color to 'red'
+                if (isZobDeparture) {
+                    circleColor = 'red';
+                }
+                // If it's a ZOB arrival, set color to 'yellow' (if it's not already 'red')
+                else if (isZobArrival) {
+                    circleColor = 'yellow';
+                }
 
                 // Create the circle and set the popup
                 L.circle([aircraft.lat, aircraft.lon], {
-                    color: circleColor,  // Use the determined color here
-                    fillColor: '#30f',
-                    fillOpacity: 0.5,
-                    radius: 300
+                color: circleColor,
+                fillColor: '#30f',
+                fillOpacity: 0.5,
+                radius: 300
                 }).addTo(map)
+                .bindTooltip(
+                `${aircraft.callsign} ${aircraft.departure} ➔ ${aircraft.destination}`,
+                {
+                  sticky: true,
+                  direction: 'top'
+                }
+                )
                 .bindPopup(`
                     <div style="font-size: 16px; font-weight: bold;">
                         ${aircraft.callsign} ${aircraft.departure} ➔ ${aircraft.destination}
@@ -147,6 +164,7 @@
         });
     })
     .catch(error => console.error('Error fetching aircraft data:', error));
+
 
 </script>
 
