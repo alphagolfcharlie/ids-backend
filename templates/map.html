@@ -5,7 +5,7 @@
 <h2 style="text-align: center;">OpenStreetMap View</h2>
 
 <!-- Map container -->
-<div id="map" style="height: 900px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
+<div id="map" style="height: 900px; margin: 20px auto; width: 80%; border-radius: 10px; padding: 50px"></div>
 
 <button onclick="openSplitEditor()" style="margin-left: 10%; margin-top: 20px">Create New Split</button>
 
@@ -23,7 +23,6 @@
   <button onclick="cancelSplitEditor()">Cancel</button>
 </div>
 
-<!--<button onclick="loadSplitSet('one')" style="margin-left: 10%; margin-top: 20px">Load Single Split</button>-->
 
 
 <!-- Controller Splits List Container -->
@@ -43,7 +42,6 @@
 <script>
   const cleCenter = [41.4117, -81.8498];
   const map = L.map('map').setView(cleCenter, 7);
-
   const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
     subdomains: 'abcd',
@@ -125,6 +123,8 @@ function loadSector(url, options = {}) {
 
 </script>
 
+<!--Splits-->
+
 <script>
   const usedSectors = new Set();
   const createdSplits = [];
@@ -133,39 +133,37 @@ function loadSector(url, options = {}) {
   let editingSplitIndex = null;  // For editing splits
   
   const predefinedSplitSets = [
-  {
-    name: "two",
-    description: "Simple east/west split",
-    splits: [
-      {
-        name: "Ravenna 48",
-        frequency: "129.875",
-        color: "#81c784",
-        sectorIds: ["SKY07", "RAV48", "ECK18", "DET28", "HUD27"]
-      },
-      {
-        name: "Bellaire 66",
-        frequency: "125.425",
-        color: "#ba68c8",
-        sectorIds: ["AIR66", "DSV36", "GEE37", "WRN77", "BKI57"]
-      }
-    ]
-  },
-  {
-    name: "one",
-    description: "1 ctr online",
-    splits: [
-      {
-        name: "Ravenna 48",
-        frequency: "119.875",
-        color: "#4fc3f7",
-        sectorIds: ["SKY07","ECK18","HUD27","DET28","DSV36","GEE37","RAV48","BKI57","AIR66","WRN77"]
-      }
-    ]
-  }
-];
-
-
+    {
+      name: "two",
+      description: "Simple east/west split",
+      splits: [
+        {
+          name: "Ravenna 48",
+          frequency: "129.875",
+          color: "#81c784",
+          sectorIds: ["SKY07", "RAV48", "ECK18", "DET28", "HUD27"]
+        },
+        {
+          name: "Bellaire 66",
+          frequency: "125.425",
+          color: "#ba68c8",
+          sectorIds: ["AIR66", "DSV36", "GEE37", "WRN77", "BKI57"]
+        }
+      ]
+    },
+    {
+      name: "one",
+      description: "1 ctr online",
+      splits: [
+        {
+          name: "Ravenna 48",
+          frequency: "119.875",
+          color: "#4fc3f7",
+          sectorIds: ["SKY07", "ECK18", "HUD27", "DET28", "DSV36", "GEE37", "RAV48", "BKI57", "AIR66", "WRN77"]
+        }
+      ]
+    }
+  ];
 
   function openSplitEditor(splitIndex = null) {
     editingSplitIndex = splitIndex;
@@ -312,6 +310,7 @@ function loadSector(url, options = {}) {
   }
 
   function loadSplitSet(setName) {
+  console.log("Loading split set:", setName);  // Debug
   const splitSet = predefinedSplitSets.find(set => set.name === setName);
   if (!splitSet) return;
 
@@ -330,10 +329,12 @@ function loadSector(url, options = {}) {
       usedSectors.add(sec.id);
       const layer = sectorToLayer[sec.id];
       layer.setStyle({
-        color: split.color,
-        weight: 3,
-        fillOpacity: 0.6
-      });
+    color: split.color,         // stroke/border color
+    fillColor: split.color,     // fill color (important!)
+    weight: 3,
+    fillOpacity: 0.6
+    });
+
       layer.bindPopup(`<strong>${split.name}</strong><br>${split.frequency}`);
     });
 
