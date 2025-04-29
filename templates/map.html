@@ -13,7 +13,8 @@
   <h3>Create a Split</h3>
   
   <label>Split Name:</label><br>
-  <input type="text" id="splitNameInput"><br><br>
+  <select id="splitNameSelect" style="width: 100%; margin-bottom: 10px;"></select><br>
+
 
   <div id="sectorCheckboxes"></div>
 
@@ -21,6 +22,8 @@
   <button onclick="confirmSplit()">Save Split</button>
   <button onclick="cancelSplitEditor()">Cancel</button>
 </div>
+
+<!--<button onclick="loadSplitSet('one')" style="margin-left: 10%; margin-top: 20px">Load Single Split</button>-->
 
 
 <!-- Controller Splits List Container -->
@@ -63,70 +66,52 @@
   const sectorToLayer = {};
   const availableSectors = [];
 
-  function loadSector(url, options = {}) {
-    fetch(url)
-      .then(response => response.json())
-      .then(data => {
-        const geojson = L.geoJSON(data, {
-          style: function () {
-            return {
-              color: options.color || defaultStyle.color,
-              weight: defaultStyle.weight,
-              fillOpacity: defaultStyle.fillOpacity
-            };
-          },
-          onEachFeature: function (feature, layer) {
-            const area = feature.properties.area || options.label || 'Unknown Area';
-            const sector = feature.properties.sector || 'Unnamed Sector';
-            const frequency = feature.properties.freq || '';
-            const position = feature.properties.position || '';
-            const id = `${area} - ${sector}`;
+  
+function loadSector(url, options = {}) {
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      const geojson = L.geoJSON(data, {
+        style: function () {
+          return {
+            color: options.color || defaultStyle.color,
+            weight: defaultStyle.weight,
+            fillOpacity: defaultStyle.fillOpacity
+          };
+        },
+        onEachFeature: function (feature, layer) {
+          const area = feature.properties.area || options.label || 'Unknown Area';
+          const sector = feature.properties.sector || 'Unnamed Sector';
+          const frequency = feature.properties.freq || '';
+          const position = feature.properties.position || '';
+          const id = `${area} - ${sector}`;
 
-            
+          const sectorObj = {
+            id,
+            area,
+            sector,
+            frequency,
+            position,
+            layer
+          };
 
-            availableSectors.push({
-              id,
-              area,
-              sector,
-              frequency,
-              position,
-              layer
-            })
+          availableSectors.push(sectorObj); // ✅ this ensures global access
 
-            layer.bindPopup(id);
-            layer.on('click', function () {
-              if (!editing) return;
-              const currentController = controllers[currentControllerIndex];
+          layer.bindPopup(id);
+          layer.on('click', function () {
+            if (!editing) return;
+            // ... existing logic ...
+          });
 
-              // Prevent duplicate sector assignments
-              if (controllers.some(ctrl => ctrl.sectors.find(s => s.id === id))) return;
+          sectorToLayer[id] = layer;
+        }
+      }).addTo(map);
 
-              const newSector = {
-                id,
-                layer,
-                area,
-                sector,
-                frequency,
-                position
-              };
-
-              currentController.sectors.push(newSector);
-              layer.setStyle({
-                color: currentController.color,
-                weight: 3,
-                fillOpacity: 0.6
-              });
-              renderControllerList();
-            });
-
-            sectorToLayer[id] = layer;
-          }
-        }).addTo(map);
-        loadedSectors[url] = geojson;
-      })
-      .catch(error => {
-        console.error("Failed to load sector:", url, error);
-      });
+      loadedSectors[url] = geojson;
+    })
+    .catch(error => {
+      console.error("Failed to load sector:", url, error);
+    });
   }
 
   // Add your geojson loads here
@@ -141,72 +126,232 @@
 </script>
 
 <script>
-  function openSplitEditor() {
-  const container = document.getElementById('sectorCheckboxes');
+  const usedSectors = new Set();
+  const createdSplits = [];
+  const splitColors = ['#4fc3f7', '#81c784', '#ffb74d', '#f06292', '#9575cd', '#aed581', '#fdd835', '#7986cb'];
+  let splitColorIndex = 0;
+  let editingSplitIndex = null;  // For editing splits
+  
+  const predefinedSplitSets = [
+  {
+    name: "two",
+    description: "Simple east/west split",
+    splits: [
+      {
+        name: "Ravenna 48",
+        frequency: "129.875",
+        color: "#81c784",
+        sectorIds: ["SKY07", "RAV48", "ECK18", "DET28", "HUD27"]
+      },
+      {
+        name: "Bellaire 66",
+        frequency: "125.425",
+        color: "#ba68c8",
+        sectorIds: ["AIR66", "DSV36", "GEE37", "WRN77", "BKI57"]
+      }
+    ]
+  },
+  {
+    name: "one",
+    description: "1 ctr online",
+    splits: [
+      {
+        name: "Ravenna 48",
+        frequency: "119.875",
+        color: "#4fc3f7",
+        sectorIds: ["SKY07","ECK18","HUD27","DET28","DSV36","GEE37","RAV48","BKI57","AIR66","WRN77"]
+      }
+    ]
+  }
+];
+
+
+
+  function openSplitEditor(splitIndex = null) {
+    editingSplitIndex = splitIndex;
+    const container = document.getElementById('sectorCheckboxes');
+    const splitNameSelect = document.getElementById('splitNameSelect');
+    container.innerHTML = '';
+    splitNameSelect.innerHTML = '';
+  
+    const selectedIds = new Set();
+  
+    // If editing, prefill selections
+    if (splitIndex !== null) {
+      createdSplits[splitIndex].sectors.forEach(sec => {
+        selectedIds.add(sec.id);
+      });
+    }
+  
+    availableSectors.forEach(sector => {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = sector.id;
+      checkbox.id = `sector-${sector.id}`;
+      checkbox.checked = selectedIds.has(sector.id);
+      checkbox.disabled = !selectedIds.has(sector.id) && usedSectors.has(sector.id);
+  
+      const label = document.createElement('label');
+      label.htmlFor = checkbox.id;
+      label.innerText = `${sector.sector}`;
+  
+      container.appendChild(checkbox);
+      container.appendChild(label);
+      container.appendChild(document.createElement('br'));
+  
+      checkbox.addEventListener('change', updateSplitNameOptions);
+    });
+  
+    updateSplitNameOptions();
+    document.getElementById('splitEditor').style.display = 'block';
+  }
+  
+  function updateSplitNameOptions() {
+    const select = document.getElementById('splitNameSelect');
+    select.innerHTML = '';
+    availableSectors.forEach(sector => {
+      const checkbox = document.getElementById(`sector-${sector.id}`);
+      if (checkbox && checkbox.checked) {
+        const option = document.createElement('option');
+        option.value = sector.sector;
+        option.textContent = sector.sector;
+        select.appendChild(option);
+      }
+    });
+  }
+  
+  function confirmSplit() {
+    const selectedSectors = [];
+    availableSectors.forEach(sector => {
+      const checkbox = document.getElementById(`sector-${sector.id}`);
+      if (checkbox && checkbox.checked) {
+        selectedSectors.push(sector);
+      }
+    });
+  
+    if (selectedSectors.length === 0) {
+      alert("Select at least one sector!");
+      return;
+    }
+  
+    const splitName = document.getElementById('splitNameSelect').value || selectedSectors[0].sector;
+    const selectedSplitFrequency = availableSectors.find(s => s.sector === splitName)?.frequency || '';
+    const splitColor = editingSplitIndex !== null
+      ? createdSplits[editingSplitIndex].color
+      : splitColors[splitColorIndex++ % splitColors.length];
+  
+    // Reset used sectors if editing
+    if (editingSplitIndex !== null) {
+      createdSplits[editingSplitIndex].sectors.forEach(sec => {
+        usedSectors.delete(sec.id);
+        sectorToLayer[sec.id].setStyle(defaultStyle);
+      });
+    }
+  
+    // Apply style and update popups
+    selectedSectors.forEach(sec => {
+      usedSectors.add(sec.id);
+      const layer = sectorToLayer[sec.id];
+      layer.setStyle({
+        color: splitColor,
+        weight: 3,
+        fillOpacity: 0.6
+      });
+      layer.bindPopup(`<strong>${splitName}</strong><br>${selectedSplitFrequency}`);
+    });
+  
+    const newSplit = {
+      name: splitName,
+      frequency: selectedSplitFrequency,
+      color: splitColor,
+      sectors: selectedSectors
+    };
+  
+    if (editingSplitIndex !== null) {
+      createdSplits[editingSplitIndex] = newSplit;
+    } else {
+      createdSplits.push(newSplit);
+    }
+  
+    editingSplitIndex = null;
+    renderSplitLegend();
+    document.getElementById('splitEditor').style.display = 'none';
+  }
+  
+  function cancelSplitEditor() {
+    editingSplitIndex = null;
+    document.getElementById('splitEditor').style.display = 'none';
+  }
+  
+  function renderSplitLegend() {
+  const container = document.getElementById('controllerList');
   container.innerHTML = '';
 
-  availableSectors.forEach(sector => {
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = sector.id;
-    checkbox.id = `sector-${sector.id}`;
+  const list = document.createElement('ul');
+  list.className = 'split-legend-list';
 
-    const label = document.createElement('label');
-    label.htmlFor = checkbox.id;
-    label.innerText = `${sector.sector} (${sector.frequency})`;
+  createdSplits.forEach((split, index) => {
+    const listItem = document.createElement('li');
+    listItem.className = 'split-legend-item';
+    listItem.style.setProperty('--split-color', split.color);
+    listItem.addEventListener('click', () => openSplitEditor(index));
 
-    container.appendChild(checkbox);
-    container.appendChild(label);
-    container.appendChild(document.createElement('br'));
+    const dot = document.createElement('span');
+    dot.className = 'color-dot';
+
+    const text = document.createElement('span');
+    text.textContent = `${split.name} (${split.frequency})`;
+    text.className = 'split-label';
+
+    listItem.appendChild(dot);
+    listItem.appendChild(text);
+    list.appendChild(listItem);
   });
 
-  document.getElementById('splitEditor').style.display = 'block';
-}
-
-function confirmSplit() {
-  const selectedSectorIds = [];
-  const selectedSectors = [];
-
-  availableSectors.forEach(sector => {
-    const checkbox = document.getElementById(`sector-${sector.id}`);
-    if (checkbox.checked) {
-      selectedSectorIds.push(sector.id);
-      selectedSectors.push(sector);
-    }
-  });
-
-  const splitName = document.getElementById('splitNameInput').value || "Unnamed Split";
-
-  if (selectedSectors.length === 0) {
-    alert("Select at least one sector!");
-    return;
+  container.appendChild(list);
   }
 
-  // Default primary sector is the first one
-  const primarySector = selectedSectors[0];
-  const primaryFrequency = primarySector.frequency;
+  function loadSplitSet(setName) {
+  const splitSet = predefinedSplitSets.find(set => set.name === setName);
+  if (!splitSet) return;
 
-  const newSplit = {
-    name: splitName,
-    primarySector: primarySector.sector,
-    frequency: primaryFrequency,
-    sectors: selectedSectorIds
-  };
+  // Clear current splits
+  createdSplits.length = 0;
+  usedSectors.clear();
 
-  console.log("Created Split:", newSplit);
-  alert(`Created split "${splitName}" with ${selectedSectorIds.length} sectors.`);
+  splitSet.splits.forEach(split => {
+    const sectors = split.sectorIds
+      .map(id => availableSectors.find(s => s.id === id))
+      .filter(Boolean);
 
-  document.getElementById('splitEditor').style.display = 'none';
+    if (sectors.length === 0) return;
 
-  // Later: add this new split to a display list or apply it
+    sectors.forEach(sec => {
+      usedSectors.add(sec.id);
+      const layer = sectorToLayer[sec.id];
+      layer.setStyle({
+        color: split.color,
+        weight: 3,
+        fillOpacity: 0.6
+      });
+      layer.bindPopup(`<strong>${split.name}</strong><br>${split.frequency}`);
+    });
+
+    createdSplits.push({
+      name: split.name,
+      frequency: split.frequency,
+      color: split.color,
+      sectors
+    });
+  });
+
+  renderSplitLegend();
 }
 
-function cancelSplitEditor() {
-  document.getElementById('splitEditor').style.display = 'none';
-}
-
-</script>
-
+  </script>
+  
+  
+<!--Pull aircraft and load onto map-->
 <script>
   fetch('/aircraft')
     .then(response => response.json())
