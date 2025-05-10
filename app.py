@@ -242,7 +242,6 @@ def aircraft():
     return jsonify(acarr)
 
 
-
 @app.route('/crossings')
 def crossings():
 

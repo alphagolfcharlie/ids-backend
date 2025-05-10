@@ -25,20 +25,21 @@ def getCoords():
         callsign = entry.get("callsign")
         lat = entry.get("latitude")
         long = entry.get("longitude")
+        alt = entry.get("altitude")
         flight_plan = entry.get("flight_plan")
 
         if flight_plan and "route" in flight_plan:
             route = flight_plan.get("route", "")
             departure = flight_plan.get("departure", "")
             arrival = flight_plan.get("arrival", "")
-            result.append((callsign, departure, arrival, route, lat, long))
+            result.append((callsign, departure, arrival, route, lat, long, alt))
 
     # Filter criteria
     target_lat, target_lon = 41.2129, -82.9431  # lat long of DJB VOR
 
     filtere = [
-        (callsign, departure, arrival, route, lat, long)
-        for callsign, departure, arrival, route, lat, long in result
+        (callsign, departure, arrival, route, lat, long, alt)
+        for callsign, departure, arrival, route, lat, long, alt in result
         if lat and long and finddist(target_lat, target_lon, lat, long) < 600
     ]
 
@@ -47,7 +48,7 @@ def getCoords():
     for row in filtere:
         aircraft_lat, aircraft_lon = row[4], row[5]
         d = finddist(target_lat, target_lon, aircraft_lat, aircraft_lon)
-        acarr.append((row[0], row[1], row[2], d, row[3], aircraft_lat, aircraft_lon))
+        acarr.append((row[0], row[1], row[2], d, row[3], row[4], row[5], row[6]))
 
     structured = []
     for row in acarr:
@@ -57,6 +58,7 @@ def getCoords():
         route = row[4]  
         lat = row[5]
         lon = row[6]
+        alte = row[7]
 
         structured.append({
             'callsign': callsign,
@@ -64,7 +66,8 @@ def getCoords():
             'departure': departure,
             'destination': destination,
             'lat': lat,
-            'lon': lon
+            'lon': lon,
+            'altitude':alte
         })
 
     return structured
