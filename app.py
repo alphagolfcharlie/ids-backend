@@ -4,6 +4,7 @@ from datetime import timedelta
 from functools import wraps
 from math import radians, cos, sin, asin, sqrt
 from dist import getCoords
+import urllib.parse
 
 app = Flask(__name__)
 
@@ -340,6 +341,28 @@ def edit_crossing(crossing_id):
     row = cursor.fetchone()
     conn.close()
     return render_template("edit_crossing.html",crossing=row, action="Edit")
+
+@app.route('/route-to-skyvector')
+def route_to_skyvector():
+    # Get parameters from the URL query string
+    departure = request.args.get('departure')
+    route = request.args.get('route')
+    arrival = request.args.get('arrival')
+
+    # Ensure all parts exist
+    if not all([departure, route, arrival]):
+        return "Missing parameters", 400
+
+    # Construct the route string and encode it for a URL
+    full_route = f"{departure} {route} {arrival}"
+    encoded_route = urllib.parse.quote(full_route)
+
+    # Create the full SkyVector URL
+    skyvector_url = f"https://skyvector.com/?fpl={encoded_route}"
+
+    # Redirect to SkyVector
+    return redirect(skyvector_url)
+
 
 if __name__ == "__main__":
     app.run()
