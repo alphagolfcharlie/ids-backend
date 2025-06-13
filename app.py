@@ -342,29 +342,19 @@ def edit_crossing(crossing_id):
     conn.close()
     return render_template("edit_crossing.html",crossing=row, action="Edit")
 
-@app.route('/route-to-skyvector')
+app.route('/route-to-skyvector')
 def route_to_skyvector():
-    dep = request.args.get('dep')
-    rte = request.args.get('rte')
-    arr = request.args.get('arr')
+    fpl = request.args.get('fpl')
+    if not fpl:
+        return "Missing 'fpl' parameter", 400
 
-    # Check if all components are present
-    if not all([dep, rte, arr]):
-        return "Missing one or more required parameters: dep, rte, arr", 400
+    # Clean up extra whitespace
+    fpl_clean = " ".join(fpl.strip().split())
 
-    # Combine into a full route string
-    full_route = f"{dep} {rte} {arr}"
+    # Encode for URL
+    encoded_fpl = urllib.parse.quote(fpl_clean)
 
-    # Clean up any stray newlines or multiple spaces
-    full_route_cleaned = " ".join(full_route.strip().split())
-
-    # URL encode the whole thing
-    encoded_route = urllib.parse.quote(full_route_cleaned)
-
-    # Redirect to SkyVector
-    skyvector_url = f"https://skyvector.com/?fpl={encoded_route}"
-    return redirect(skyvector_url)
-
+    return redirect(f"https://skyvector.com/?fpl={encoded_fpl}")
 
 if __name__ == "__main__":
     app.run()
