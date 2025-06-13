@@ -344,23 +344,25 @@ def edit_crossing(crossing_id):
 
 @app.route('/route-to-skyvector')
 def route_to_skyvector():
-    # Get parameters from the URL query string
-    departure = request.args.get('departure')
-    route = request.args.get('route')
-    arrival = request.args.get('arrival')
+    dep = request.args.get('dep')
+    rte = request.args.get('rte')
+    arr = request.args.get('arr')
 
-    # Ensure all parts exist
-    if not all([departure, route, arrival]):
-        return "Missing parameters", 400
+    # Check if all components are present
+    if not all([dep, rte, arr]):
+        return "Missing one or more required parameters: dep, rte, arr", 400
 
-    # Construct the route string and encode it for a URL
-    full_route = f"{departure} {route} {arrival}"
-    encoded_route = urllib.parse.quote(full_route)
+    # Combine into a full route string
+    full_route = f"{dep} {rte} {arr}"
 
-    # Create the full SkyVector URL
-    skyvector_url = f"https://skyvector.com/?fpl={encoded_route}"
+    # Clean up any stray newlines or multiple spaces
+    full_route_cleaned = " ".join(full_route.strip().split())
+
+    # URL encode the whole thing
+    encoded_route = urllib.parse.quote(full_route_cleaned)
 
     # Redirect to SkyVector
+    skyvector_url = f"https://skyvector.com/?fpl={encoded_route}"
     return redirect(skyvector_url)
 
 
