@@ -342,19 +342,48 @@ def edit_crossing(crossing_id):
     conn.close()
     return render_template("edit_crossing.html",crossing=row, action="Edit")
 
-app.route('/route-to-skyvector')
+@app.route('/route-to-skyvector')
 def route_to_skyvector():
-    fpl = request.args.get('fpl')
-    if not fpl:
-        return "Missing 'fpl' parameter", 400
+    callsign = request.args.get('callsign', '').upper().strip()
+    if not callsign:
+        return "Missing callsign parameter", 400
 
-    # Clean up extra whitespace
-    fpl_clean = " ".join(fpl.strip().split())
+    try:
+        print(f"Looking for: {callsign}")
 
-    # Encode for URL
-    encoded_fpl = urllib.parse.quote(fpl_clean)
+        datafeed = "https://data.vatsim.net/v3/vatsim-data.json"
+        response = requests.get(datafeed, timeout=5)
+        data = response.json()
 
-    return redirect(f"https://skyvector.com/?fpl={encoded_fpl}")
+        # DEBUG: Print all online callsigns
+        active_callsigns = [pilot.get('callsign', '') for pilot in data.get('pilots', [])]
+        print(f"Online callsigns: {active_callsigns[:10]} ...")  # print first 10 only
+
+        for pilot in data.get('pilots', []):
+            current = pilot.get('callsign', '').upper()
+            if current == callsign:
+                print(f"Matched pilot: {current}")
+                fp = pilot.get('flight_plan')
+                if not fp:
+                    return f"No flight plan found for {callsign}", 404
+
+                dep = fp.get("departure", "").strip()
+                rte = fp.get("route", "").strip()
+                arr = fp.get("arrival", "").strip()
+
+                if not (dep and arr):
+                    return "Flight plan is missing departure or arrival", 400
+
+                full_route = f"{dep} {rte} {arr}".strip()
+                clean = " ".join(full_route.split())
+                encoded = urllib.parse.quote(clean)
+
+                return redirect(f"https://skyvector.com/?fpl={encoded}")
+
+        return f"Callsign {callsign} not found in VATSIM data", 404
+
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
 if __name__ == "__main__":
     app.run()
