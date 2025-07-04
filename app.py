@@ -8,14 +8,17 @@ import urllib.parse
 
 app = Flask(__name__)
 
+def is_api_request():
+    return request.host.startswith("api.")
+
 RUNWAY_FLOW_MAP = {
     "DTW": {
-        "SOUTH": ["21","22"],
-        "NORTH": ["3","4"],
+        "SOUTH": ["21", "22"],
+        "NORTH": ["3", "4"],
         "WEST": ["27"]
     },
-    # Add more airports if needed
 }
+
 def get_flow(airport_code):
     airport_code = airport_code.upper()
     if airport_code not in RUNWAY_FLOW_MAP:
@@ -25,54 +28,52 @@ def get_flow(airport_code):
         aptIcao = "K" + airport_code
         datis_url = f"https://datis.clowd.io/api/{aptIcao}"
         response = requests.get(datis_url)
-        
+
         if response.status_code != 200:
             return None
-        
+
         atis_data = response.json()
         atis_text = atis_data[1]
-        
-        # Clean up the ATIS text to help matching
         atis_datis = atis_text['datis']
 
-        # Look for any runway in the ATIS text and return the matching flow
         flow_config = RUNWAY_FLOW_MAP[airport_code]
         for flow_direction, runways in flow_config.items():
             for rwy in runways:
-                # Match like "DEP RWY 21L" or "DEPARTURE RUNWAY 21L"
                 if re.search(rf"DEPG RWY {rwy}[LRC]?", atis_datis):
                     return flow_direction.upper()
-        print(f"No matching flow found for {airport_code}")
-
         return None
     except Exception as e:
         print(f"Flow detection error for {airport_code}: {e}")
         return None
 
-
 @app.route("/")
 def home():
+    if is_api_request():
+        return jsonify({"message": "API"}), 200
     return render_template("index.html")
 
 @app.route("/SOPs")
 def SOPs():
+    if is_api_request():
+        return "Not available on API subdomain", 404
     return redirect("https://clevelandcenter.org/downloads")
 
 @app.route("/refs")
 def refs():
+    if is_api_request():
+        return "Not available on API subdomain", 404
     return redirect("https://refs.clevelandcenter.org")
 
 @app.route('/search', methods=['GET','POST'])
-
 def search():
+    if is_api_request():
+        return "Not available on API subdomain", 404
 
     origin = request.args.get('origin','').upper()
     destination = request.args.get('destination','').upper()
-    
     routes = searchroute(origin, destination)
-    
     searched = True
-    return render_template("search.html", routes=routes, searched=searched)    
+    return render_template("search.html", routes=routes, searched=searched)
 
 def searchroute(origin, destination):
     routes = []
@@ -82,28 +83,22 @@ def searchroute(origin, destination):
     if origin and destination:
         cursor.execute("""
             SELECT * FROM routes
-            WHERE
-                (origin = ? OR notes LIKE ?)
-                AND destination = ?
-        """, (origin,f"%{origin}%",destination))
-
+            WHERE (origin = ? OR notes LIKE ?) AND destination = ?
+        """, (origin, f"%{origin}%", destination))
     elif origin:
         cursor.execute("""
             SELECT * FROM routes
-            WHERE 
-                (origin = ? OR notes LIKE ?)
-        """, (origin,f"%{origin}%"))
-
+            WHERE (origin = ? OR notes LIKE ?)
+        """, (origin, f"%{origin}%"))
     elif destination:
         cursor.execute("""
             SELECT * FROM routes
             WHERE destination = ?
             ORDER BY origin ASC
         """, (destination,))
-
     else:
-        cursor.execute(f"SELECT * FROM routes ORDER BY origin ASC, destination ASC")
-    
+        cursor.execute("SELECT * FROM routes ORDER BY origin ASC, destination ASC")
+
     rows = cursor.fetchall()
     conn.close()
 
@@ -120,13 +115,10 @@ def searchroute(origin, destination):
             CurrFlow = get_flow(destination)
             if CurrFlow and CurrFlow.upper() in route_notes.upper():
                 isActive = True
-            else:
-                isActive = False
         else:
             hasFlows = False
         if origin and origin in route_notes:
             route_origin = origin
-        
 
         routes.append({
             'origin': route_origin,
@@ -134,22 +126,11 @@ def searchroute(origin, destination):
             'route': row[2],
             'altitude': row[3],
             'notes': route_notes,
-            'flow':CurrFlow or '',
-            'isActive':isActive,
-            'hasFlows':hasFlows
+            'flow': CurrFlow or '',
+            'isActive': isActive,
+            'hasFlows': hasFlows
         })
     return routes
-
-def validateRoute(origin, destination, route):
-
-    storedRoute = searchroute(origin, destination)
-    if storedRoute is None:
-        return("Error")
-    else:
-        if storedRoute == route:
-            print("Route is valid")
-        else:
-            print("Route not valid. Database route is",route)
 
 def check_auth(username, password): 
     return username == 'admin' and password == 'password'
@@ -172,16 +153,20 @@ def requires_auth(f):
 @app.route('/admin/routes')
 @requires_auth
 def admin_routes():
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     conn = sqlite3.connect('routes.db')
     cursor = conn.cursor()
     cursor.execute("SELECT rowid, * FROM routes ORDER BY origin ASC, destination ASC")
     rows= cursor.fetchall()
     conn.close()
-    return render_template("admin_routes.html",routes=rows)
+    return render_template("admin_routes.html", routes=rows)
 
 @app.route('/admin/routes/add', methods=['GET', 'POST'])
 @requires_auth
 def add_route():
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     if request.method == 'POST':
         origin = request.form['origin']
         destination = request.form['destination']
@@ -201,6 +186,8 @@ def add_route():
 @app.route('/admin/routes/delete/<int:route_id>')
 @requires_auth
 def delete_route(route_id):
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     conn = sqlite3.connect('routes.db')
     cursor = conn.cursor()
     cursor.execute("DELETE FROM routes WHERE rowid=?", (route_id,))
@@ -211,9 +198,10 @@ def delete_route(route_id):
 @app.route('/admin/routes/edit/<int:route_id>', methods=['GET', 'POST'])
 @requires_auth
 def edit_route(route_id):
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     conn = sqlite3.connect('routes.db')
     cursor = conn.cursor()
-
     if request.method == 'POST':
         origin = request.form['origin']
         destination = request.form['destination']
@@ -235,19 +223,23 @@ def edit_route(route_id):
 
 @app.route('/map')
 def show_map():
+    if is_api_request():
+        return "Not available on API subdomain", 404
     return render_template("map.html")
 
 @app.route('/aircraft')
 def aircraft():
+    if is_api_request():
+        return "Not available on API subdomain", 404
     acarr = getCoords()
     return jsonify(acarr)
 
-
 @app.route('/crossings')
 def crossings():
+    if is_api_request():
+        return "Not available on API subdomain", 404
 
     destination = request.args.get('destination','').upper()
-    
     crossings = []
     conn = sqlite3.connect('crossings.db')
     cursor = conn.cursor()
@@ -256,39 +248,41 @@ def crossings():
         cursor.execute("""
             SELECT * FROM crossings
             WHERE destination = ?""", (destination,))
-
     else:
-        cursor.execute(f"SELECT * FROM crossings ORDER BY destination ASC")
+        cursor.execute("SELECT * FROM crossings ORDER BY destination ASC")
     
     rows = cursor.fetchall()
     conn.close()
 
     for row in rows:
-        
         crossings.append({
             'destination': row[0],
             'fix': row[1],
             'restriction': row[2],
             'notes': row[3],
-            'artcc':row[4]
+            'artcc': row[4]
         })
-    
+
     searched = True
-    return render_template("crossings.html", crossings=crossings)    
+    return render_template("crossings.html", crossings=crossings)
 
 @app.route('/admin/crossings')
 @requires_auth
 def admin_crossings():
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     conn = sqlite3.connect('crossings.db')
     cursor = conn.cursor()
     cursor.execute("SELECT rowid, * FROM crossings ORDER BY destination ASC")
-    rows= cursor.fetchall()
+    rows = cursor.fetchall()
     conn.close()
-    return render_template("admin_crossings.html",crossings=rows)
+    return render_template("admin_crossings.html", crossings=rows)
 
 @app.route('/admin/crossings/add', methods=['GET', 'POST'])
 @requires_auth
 def add_crossing():
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     if request.method == 'POST':
         destination = request.form['destination']
         fix = request.form['fix']
@@ -308,9 +302,11 @@ def add_crossing():
 @app.route('/admin/crossings/delete/<int:crossing_id>')
 @requires_auth
 def delete_crossing(crossing_id):
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     conn = sqlite3.connect('crossings.db')
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM routes WHERE rowid=?", (crossing_id))
+    cursor.execute("DELETE FROM crossings WHERE rowid=?", (crossing_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('admin_crossings'))
@@ -318,6 +314,8 @@ def delete_crossing(crossing_id):
 @app.route('/admin/crossings/edit/<int:crossing_id>', methods=['GET', 'POST'])
 @requires_auth
 def edit_crossing(crossing_id):
+    if is_api_request():
+        return "Admin unavailable via API domain", 403
     conn = sqlite3.connect('crossings.db')
     cursor = conn.cursor()
 
@@ -336,33 +334,30 @@ def edit_crossing(crossing_id):
         conn.commit()
         conn.close()
         return redirect(url_for('admin_crossings'))
-    
+
     cursor.execute("SELECT * FROM crossings WHERE rowid=?", (crossing_id,))
     row = cursor.fetchone()
     conn.close()
-    return render_template("edit_crossing.html",crossing=row, action="Edit")
+    return render_template("edit_crossing.html", crossing=row, action="Edit")
 
 @app.route('/route-to-skyvector')
 def route_to_skyvector():
+    if not is_api_request():
+        return "This endpoint is only available on api.alphagolfcharlie.dev", 403
+
     callsign = request.args.get('callsign', '').upper().strip()
     if not callsign:
         return "Missing callsign parameter", 400
 
     try:
         print(f"Looking for: {callsign}")
-
         datafeed = "https://data.vatsim.net/v3/vatsim-data.json"
         response = requests.get(datafeed, timeout=5)
         data = response.json()
 
-        # DEBUG: Print all online callsigns
-        active_callsigns = [pilot.get('callsign', '') for pilot in data.get('pilots', [])]
-        print(f"Online callsigns: {active_callsigns[:10]} ...")  # print first 10 only
-
         for pilot in data.get('pilots', []):
             current = pilot.get('callsign', '').upper()
             if current == callsign:
-                print(f"Matched pilot: {current}")
                 fp = pilot.get('flight_plan')
                 if not fp:
                     return f"No flight plan found for {callsign}", 404
@@ -375,16 +370,12 @@ def route_to_skyvector():
                     return "Flight plan is missing departure or arrival", 400
 
                 full_route = f"{dep} {rte} {arr}".strip()
-                clean = " ".join(full_route.split())
-                encoded = urllib.parse.quote(clean)
-
+                encoded = urllib.parse.quote(" ".join(full_route.split()))
                 return redirect(f"https://skyvector.com/?fpl={encoded}")
 
         return f"Callsign {callsign} not found in VATSIM data", 404
-
     except Exception as e:
         return f"Error: {str(e)}", 500
 
 if __name__ == "__main__":
     app.run()
-
