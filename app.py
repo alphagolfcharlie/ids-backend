@@ -383,36 +383,36 @@ with open('data/flight_plans.json') as f:
 @app.route('/flightdata')
 def flightdata():
     plan = random.choice(flight_plans)
-    return render_template('trainer.html', plan=plan['incorrect'])
+    return render_template('trainer.html', plan=plan['incorrect'], correct=plan['correct'])
+
 
 def normalize_route(s):
     return ' '.join(s.upper().split())
 
 @app.route('/trainer/check', methods=['POST'])
 def check_trainer():
-    user_input = request.json
-    plan = session.get('current_plan')
-    if not plan:
-        return jsonify({'error': 'No plan loaded'}), 400
+    data = request.json
 
-    correct_plan = plan['correct']
-    user_rte = normalize_route(user_input['rte'])
-    user_alt = user_input['alt'].strip()
+    def normalize(text):
+        return ' '.join(text.upper().split())
 
-    correct_rtes = [normalize_route(r) for r in (correct_plan['rte'] if isinstance(correct_plan['rte'], list) else [correct_plan['rte']])]
-    correct_alts = [str(a).strip() for a in (correct_plan['alt'] if isinstance(correct_plan['alt'], list) else [correct_plan['alt']])]
+    rte_input = normalize(data.get('rte', ''))
+    alt_input = data.get('alt', '').strip()
 
-    rte_correct = user_rte in correct_rtes
-    alt_correct = user_alt in correct_alts
+    # Get correct values from the form POST data
+    correct_rtes = data.get('correct_rte')
+    correct_alts = data.get('correct_alt')
 
-    # Track attempts
-    session['attempts'] = session.get('attempts', 0) + 1
+    # Handle multiple correct values (list or string)
+    correct_rte_list = eval(correct_rtes) if correct_rtes.startswith("[") else [correct_rtes]
+    correct_alt_list = eval(correct_alts) if correct_alts.startswith("[") else [correct_alts]
+
+    rte_correct = rte_input in [normalize(r) for r in correct_rte_list]
+    alt_correct = alt_input in [str(a).strip() for a in correct_alt_list]
 
     return jsonify({
         'rte_correct': rte_correct,
-        'alt_correct': alt_correct,
-        'show_reveal': session['attempts'] >= 2,
-        'correct_route': correct_plan['rte'] if session['attempts'] >= 2 else None
+        'alt_correct': alt_correct
     })
 
 if __name__ == "__main__":

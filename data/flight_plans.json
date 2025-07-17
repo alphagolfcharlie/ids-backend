@@ -70,5 +70,41 @@
       "rte": "METRO4 MAARS JHW J70 LVZ LENDY8",
       "alt": "310"
     }
+  },
+  {
+    "incorrect": {
+      "aid": "DAL336",
+      "cid": "467",
+      "bcn": "4137",
+      "typ": "A320",
+      "eq": "L",
+      "dep": "KDTW",
+      "dest": "KSDF",
+      "spd": "484",
+      "alt": "300",
+      "rte": "CLVIN3 STAZE CVG"
+    },
+    "correct": {
+      "rte": "CLVIN3 CLVIN RINTE DLAMP8",
+      "alt": "280"
+    }
+  },
+  {
+    "incorrect": {
+      "aid": "SWA1442",
+      "cid": "467",
+      "bcn": "4137",
+      "typ": "B738",
+      "eq": "L",
+      "dep": "KDTW",
+      "dest": "KMDW",
+      "spd": "484",
+      "alt": "230",
+      "rte": "KAYLN3 SMUUV BAGEL PANGG6"
+    },
+    "correct": {
+      "rte": "CCOBB3 ZEGBI LEROY BAGEL PANGG6",
+      "alt": "220"
+    }
   }
 ]

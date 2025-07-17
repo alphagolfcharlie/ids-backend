@@ -2,7 +2,6 @@
 
 {% block content %}
 <div class="container">
-  <h1>Flight Plan Trainer</h1>
 
   <div class="flight-card">
     <h2>Presented Flight Plan</h2>
@@ -10,35 +9,44 @@
     <p><strong>DEP → DEST:</strong> {{ plan.dep }} → {{ plan.dest }}</p>
     <p><strong>Altitude:</strong> {{ plan.alt }}</p>
     <p><strong>Route:</strong> {{ plan.rte }}</p>
+    <a
+      href="https://skyvector.com/?fpl={{ plan.dep }}%20{{ plan.rte|replace(' ', '%20') }}%20{{ plan.dest }}"
+      target="_blank"
+      class="amend-btn"
+      style="display: inline-block; text-align: center; margin-top: 10px; background-color: #0f172a; color: blue;">
+      View Presented Route on SkyVector
+    </a>
   </div>
 
   <form id="correctionForm" class="form-section">
     <input type="hidden" name="aid" value="{{ plan.aid }}">
+    <input type="hidden" name="dep" value="{{ plan.dep }}">
+    <input type="hidden" name="dest" value="{{ plan.dest }}">
+    <input type="hidden" name="correct_rte" value="{{ correct.rte }}">
+    <input type="hidden" name="correct_alt" value="{{ correct.alt }}">
+
     <label>Corrected Route</label>
     <input type="text" name="rte" placeholder="Enter corrected route">
+
     <label>Corrected Altitude</label>
     <input type="text" name="alt" placeholder="Enter corrected altitude">
+
     <button type="submit" class="amend-btn">Amend</button>
   </form>
 
-  <div id="feedback" class="feedback"></div>
-
-  <div style="text-align:center; margin-top:20px;">
-    <button id="viewStudentRoute" class="amend-btn" style="width:250px;">View Your Route on SkyVector</button>
-    <a id="studentSkyvectorLink" href="#" target="_blank" style="display:none;"></a>
+  <div style="text-align: center; margin-top: 20px;">
+    <button id="viewStudentRoute" class="amend-btn" style="background-color: #81d4fa; width: 250px;">
+      View Your Route on SkyVector
+    </button>
   </div>
+  <a id="studentSkyvectorLink" href="#" target="_blank" style="display:none;"></a>
 
-  <div id="revealSection" style="display:none; text-align:center; margin-top:20px;">
-    <button id="revealCorrectBtn" class="amend-btn" style="background-color:#ffa726;">Reveal Correct Route</button>
-    <div id="correctRouteBox" style="display:none; margin-top:15px; color:#ffcc00;">
-      <p><strong>Correct Route:</strong> <span id="correctRouteText"></span></p>
-      <a id="correctRouteLink" href="#" target="_blank" class="amend-btn" style="background-color:#00e676; color:black;">View Correct Route on SkyVector</a>
-    </div>
-  </div>
-
-  <form action="/trainer" method="get" style="text-align:center; margin-top:20px;">
-    <button type="submit" class="amend-btn" style="width:200px;">Next Plan</button>
+  <form action="/flightdata" method="get" style="margin-top: 20px; text-align: center;">
+    <button type="submit" class="amend-btn" style="width: 200px;">Next Plan</button>
   </form>
+
+  <div id="feedback" class="feedback" style="text-align:center; margin-top:20px;"></div>
+
 </div>
 
 <script>
@@ -46,42 +54,36 @@
   const dest = "{{ plan.dest }}";
   let lastStudentUrl = "#";
 
-  document.getElementById("correctionForm").addEventListener("submit", async function(e) {
+  document.getElementById("correctionForm").addEventListener("submit", async function (e) {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(this).entries());
+    const form = new FormData(this);
+    const data = Object.fromEntries(form.entries());
 
-    const res = await fetch('/trainer/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch("/trainer/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
 
     const result = await res.json();
+
     let feedback = "";
     feedback += result.rte_correct ? "✅ Route correct. " : "❌ Route incorrect. ";
     feedback += result.alt_correct ? "✅ Altitude correct." : "❌ Altitude incorrect.";
     document.getElementById("feedback").innerHTML = feedback;
 
-    // Update SkyVector link
+    // Generate student SkyVector URL
     const rte = data.rte.trim().replace(/\s+/g, '%20');
     lastStudentUrl = `https://skyvector.com/?fpl=${dep}%20${rte}%20${dest}`;
-
-    // Show reveal button if allowed
-    if (result.show_reveal) {
-      document.getElementById("revealSection").style.display = "block";
-      if (result.correct_route) {
-        document.getElementById("revealCorrectBtn").onclick = () => {
-          const route = Array.isArray(result.correct_route) ? result.correct_route[0] : result.correct_route;
-          document.getElementById("correctRouteText").textContent = route;
-          document.getElementById("correctRouteLink").href = `https://skyvector.com/?fpl=${dep}%20${route.replace(/\s+/g, '%20')}%20${dest}`;
-          document.getElementById("correctRouteBox").style.display = "block";
-        };
-      }
-    }
+    const link = document.getElementById("studentSkyvectorLink");
+    link.href = lastStudentUrl;
+    link.style.display = 'inline';
   });
 
   document.getElementById("viewStudentRoute").onclick = () => {
-    if (lastStudentUrl !== "#") window.open(lastStudentUrl, '_blank');
+    if (lastStudentUrl !== "#") {
+      window.open(lastStudentUrl, '_blank');
+    }
   };
 </script>
 {% endblock %}
