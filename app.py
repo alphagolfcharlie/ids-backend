@@ -1,5 +1,5 @@
 from flask import Flask, redirect, url_for, render_template, request, jsonify, session, json, Response
-import requests, re, sqlite3
+import requests, re, sqlite3, random
 from datetime import timedelta
 from functools import wraps
 from math import radians, cos, sin, asin, sqrt
@@ -376,6 +376,35 @@ def route_to_skyvector():
         return f"Callsign {callsign} not found in VATSIM data", 404
     except Exception as e:
         return f"Error: {str(e)}", 500
+
+with open('data/flight_plans.json') as f: 
+    flight_plans = json.load(f)
+
+@app.route('/flightdata')
+def flightdata():
+    plan = random.choice(flight_plans)
+    return render_template('trainer.html', plan=plan['incorrect'])
+
+@app.route('/trainer/check', methods=['POST'])
+def check_trainer():
+    user_input = request.json
+    plan = session.get('current_plan')
+    if not plan:
+        return jsonify({'error': 'No plan loaded'}), 400
+
+    correct_plan = plan['correct']
+    rte_correct = user_input['rte'].strip().upper() in [r.upper() for r in (correct_plan['rte'] if isinstance(correct_plan['rte'], list) else [correct_plan['rte']])]
+    alt_correct = user_input['alt'].strip() in (correct_plan['alt'] if isinstance(correct_plan['alt'], list) else [correct_plan['alt']])
+
+    # Track attempts
+    session['attempts'] = session.get('attempts', 0) + 1
+
+    return jsonify({
+        'rte_correct': rte_correct,
+        'alt_correct': alt_correct,
+        'show_reveal': session['attempts'] >= 2,  # Reveal button after 2 tries
+        'correct_route': correct_plan['rte'] if session['attempts'] >= 2 else None
+    })
 
 if __name__ == "__main__":
     app.run()

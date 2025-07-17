@@ -1,0 +1,74 @@
+[
+  {
+    "incorrect": {
+      "aid": "JBU377",
+      "cid": "48",
+      "bcn": "1022",
+      "typ": "A320",
+      "eq": "L",
+      "dep": "KCLE",
+      "dest": "KORD",
+      "spd": "351",
+      "alt": "330",
+      "rte": "GTLKE4 YABRO EMMMA WYNDE2"
+    },
+    "correct": {
+      "rte": "GTLKE4 DAIFE WATSN WATSN4",
+      "alt": "320"
+    }
+  },
+  {
+    "incorrect": {
+      "aid": "AAL332",
+      "cid": 85,
+      "bcn": 104,
+      "typ": "B738",
+      "eq": "L",
+      "dep": "KDTW",
+      "dest": "KBUF",
+      "spd": 367,
+      "alt": "290",
+      "rte": "HHOWE4 LNCON JHW"
+    },
+    "correct": {
+      "rte": "HHOWE4 BROKK DKK",
+      "alt": "270"
+    }
+  },
+  {
+    "incorrect": {
+      "aid": "FLC1984",
+      "cid": 192,
+      "bcn": 6460,
+      "typ": "C172",
+      "eq": "G",
+      "dep": "KCLE",
+      "dest": "KPHL",
+      "spd": 487,
+      "alt": "310",
+      "rte": "KKIDS1 EWC JST BOJID4"
+    },
+    "correct": {
+      "rte": "KKIDS1 EWC HAR V210 BUNTS",
+      "alt": "290"
+    }
+  },
+  {
+    "incorrect": {
+      "aid": "MLSHS1",
+      "cid": "285",
+      "bcn": "6610",
+      "typ": "F16",
+      "eq": "Z",
+      "dep": "KDTW",
+      "dest": "KJFK",
+      "spd": "439",
+      "alt": "310",
+      "rte": "JHW LVZ LVZ4"
+    },
+    "correct": {
+      "rte": "METRO4 MAARS JHW J70 LVZ LENDY8",
+      "alt": "310"
+    }
+  }
+]
