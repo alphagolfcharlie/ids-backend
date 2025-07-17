@@ -506,3 +506,65 @@ background-color: #3d3d3d;
     font-size: 0.9rem;
   }
   
+
+
+  .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background-color: #0f172a; /* Ensure background matches the body */
+  }
+
+
+  .flight-card {
+    background-color: #0f172a;
+    border: 2px solid #164285;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    color: #ffffff;
+  }
+
+  .flight-card h2 {
+    margin-bottom: 10px;
+    color: #ffffff;
+  }
+
+  .form-section input[type="text"],
+  .form-section button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #444;
+  }
+
+  .form-section button {
+    background-color: #4fc3f7;
+    color: black;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  .form-section button:hover {
+    background-color: #29b6f6;
+  }
+
+  .feedback {
+    margin-top: 15px;
+    font-weight: bold;
+  }
+
+  .navbar {
+    background-color: #344767;
+    padding: 15px 30px;
+  }
+
+  .navbar h1 {
+    margin: 0;
+    color: white;
+    font-size: 24px;
+  }
