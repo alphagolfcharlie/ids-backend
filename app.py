@@ -385,6 +385,9 @@ def flightdata():
     plan = random.choice(flight_plans)
     return render_template('trainer.html', plan=plan['incorrect'])
 
+def normalize_route(s):
+    return ' '.join(s.upper().split())
+
 @app.route('/trainer/check', methods=['POST'])
 def check_trainer():
     user_input = request.json
@@ -393,8 +396,14 @@ def check_trainer():
         return jsonify({'error': 'No plan loaded'}), 400
 
     correct_plan = plan['correct']
-    rte_correct = user_input['rte'].strip().upper() in [r.upper() for r in (correct_plan['rte'] if isinstance(correct_plan['rte'], list) else [correct_plan['rte']])]
-    alt_correct = user_input['alt'].strip() in (correct_plan['alt'] if isinstance(correct_plan['alt'], list) else [correct_plan['alt']])
+    user_rte = normalize_route(user_input['rte'])
+    user_alt = user_input['alt'].strip()
+
+    correct_rtes = [normalize_route(r) for r in (correct_plan['rte'] if isinstance(correct_plan['rte'], list) else [correct_plan['rte']])]
+    correct_alts = [str(a).strip() for a in (correct_plan['alt'] if isinstance(correct_plan['alt'], list) else [correct_plan['alt']])]
+
+    rte_correct = user_rte in correct_rtes
+    alt_correct = user_alt in correct_alts
 
     # Track attempts
     session['attempts'] = session.get('attempts', 0) + 1
@@ -402,7 +411,7 @@ def check_trainer():
     return jsonify({
         'rte_correct': rte_correct,
         'alt_correct': alt_correct,
-        'show_reveal': session['attempts'] >= 2,  # Reveal button after 2 tries
+        'show_reveal': session['attempts'] >= 2,
         'correct_route': correct_plan['rte'] if session['attempts'] >= 2 else None
     })
 
