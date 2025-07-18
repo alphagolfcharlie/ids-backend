@@ -106,5 +106,59 @@
       "rte": "CCOBB3 ZEGBI LEROY BAGEL PANGG6",
       "alt": "220"
     }
+  },
+  {
+    "incorrect": {
+      "aid": "PAA25",
+      "cid": "609",
+      "bcn": "2159",
+      "typ": "B742",
+      "eq": "W",
+      "dep": "KDTW",
+      "dest": "KMSP",
+      "spd": "453",
+      "alt": "330",
+      "rte": "CRL BAE"
+    },
+    "correct": {
+      "rte": "METRO4 DUNKS PMM BAE EAU9",
+      "alt": "320"
+    }
+  },
+  {
+    "incorrect": {
+      "aid": "DAL1337",
+      "cid": "609",
+      "bcn": "2159",
+      "typ": "A321",
+      "eq": "L",
+      "dep": "KDTW",
+      "dest": "KBOS",
+      "spd": "453",
+      "alt": "340",
+      "rte": "JHW Q82 PONCT"
+    },
+    "correct": {
+      "rte": "HHOWE4 LNCON JHW Q82 PONCT JFUND2",
+      "alt": "330"
+    }
+  },
+  {
+    "incorrect": {
+      "aid": "DAL1223",
+      "cid": "609",
+      "bcn": "2159",
+      "typ": "A319",
+      "eq": "L",
+      "dep": "KDTW",
+      "dest": "KDCA",
+      "spd": "453",
+      "alt": "350",
+      "rte": "HHOWE4 BROKK PSB SKILS5"
+    },
+    "correct": {
+      "rte": "LIDDS4 GRIVY BUCKO FRDMM6",
+      "alt": "350"
+    }
   }
 ]
