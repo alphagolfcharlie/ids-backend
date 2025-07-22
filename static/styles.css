@@ -582,10 +582,11 @@ background-color: #3d3d3d;
 .faa-badge {
     background-color: #e91e63;
     color: white;
-    padding: 3px 8px;
+    padding: 3px 10px;
     border-radius: 3px;
     font-size: 0.9em;
     font-weight: bold;
     display: inline-block;
-    margin-bottom: 10px;
 }
+
+

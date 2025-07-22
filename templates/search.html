@@ -20,8 +20,7 @@
     {% for route in routes %}
         <li class="{% if route.source == 'faa' %}faa-route-card{% else %}card{% endif %} {% if not route.isActive and route.hasFlows %}inactive-route{% endif %}">
             
-            <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
-
+            <strong>{{ route.origin }} → {{ route.destination }}</strong><br><br>
             {% if route.source == 'faa' %}
                 <span class="faa-badge">
                     FAA Preferred Route
