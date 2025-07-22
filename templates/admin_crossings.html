@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1 style="text-align: center;">Crossings Manager</h1>
+<h1 style="text-align: center;">Crossing Manager</h1>
 
 <div style="width: 80%; margin: 0 auto;">
 
-    <!-- Add New Route Button aligned to left -->
+    <!-- Add New Crossing Button -->
     <div style="text-align: left; margin-bottom: 15px;">
         <a href="{{ url_for('add_crossing') }}" style="text-decoration: none; font-weight: bold; padding: 6px 12px; background-color: #007bff; color: white; border-radius: 4px;">+ Add New Crossing</a>
     </div>
 
-    <!-- Table centered -->
+    <!-- Table -->
     <div style="display: flex; justify-content: center;">
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-            <thead style="background-color: #344767;">
+            <thead style="background-color: #344767; color: white;">
                 <tr>
                     <th>Destination</th>
                     <th>Boundary Fix</th>
@@ -26,14 +26,14 @@
             <tbody>
                 {% for row in crossings %}
                 <tr>
-                    <td>{{ row[1] }}</td>
-                    <td>{{ row[2] }}</td>
-                    <td>{{ row[3] }}</td>
-                    <td>{{ row[4] }}</td>
-                    <td>{{ row[5] }}</td>
+                    <td>{{ row.get('destination', '') }}</td>
+                    <td>{{ row.get('bdry_fix', '') }}</td>
+                    <td>{{ row.get('restriction', '') }}</td>
+                    <td>{{ row.get('notes', '') }}</td>
+                    <td>{{ row.get('artcc', '') }}</td>
                     <td>
-                        <a href="{{ url_for('edit_crossing', crossing_id=row[0]) }}">Edit</a> |
-                        <a href="{{ url_for('delete_crossing', crossing_id=row[0]) }}" onclick="return confirm('Delete this crossing?');">Delete</a>
+                        <a href="{{ url_for('edit_crossing', crossing_id=row['_id']) }}">Edit</a> |
+                        <a href="{{ url_for('delete_crossing', crossing_id=row['_id']) }}" onclick="return confirm('Delete this crossing?');">Delete</a>
                     </td>
                 </tr>
                 {% endfor %}

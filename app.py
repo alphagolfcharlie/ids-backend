@@ -5,6 +5,14 @@ from functools import wraps
 from math import radians, cos, sin, asin, sqrt
 from dist import getCoords
 import urllib.parse
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
 
 app = Flask(__name__)
 
@@ -18,6 +26,16 @@ RUNWAY_FLOW_MAP = {
         "WEST": ["27"]
     },
 }
+
+
+MONGO_URI = os.getenv("MONGO_URI")
+
+client = MongoClient(MONGO_URI)
+
+db = client["ids"]
+routes_collection = db["routes"]
+crossings_collection = db["crossings"]
+
 
 def get_flow(airport_code):
     airport_code = airport_code.upper()
@@ -76,55 +94,48 @@ def search():
     return render_template("search.html", routes=routes, searched=searched)
 
 def searchroute(origin, destination):
-    routes = []
-    conn = sqlite3.connect('routes.db')
-    cursor = conn.cursor()
-
+    query = {}
     if origin and destination:
-        cursor.execute("""
-            SELECT * FROM routes
-            WHERE (origin = ? OR notes LIKE ?) AND destination = ?
-        """, (origin, f"%{origin}%", destination))
+        query = {
+            "$and": [
+                {"$or": [
+                    {"origin": origin},
+                    {"notes": {"$regex": origin, "$options": "i"}}
+                ]},
+                {"destination": destination}
+            ]
+        }
     elif origin:
-        cursor.execute("""
-            SELECT * FROM routes
-            WHERE (origin = ? OR notes LIKE ?)
-        """, (origin, f"%{origin}%"))
+        query = {"$or": [
+            {"origin": origin},
+            {"notes": {"$regex": origin, "$options": "i"}}
+        ]}
     elif destination:
-        cursor.execute("""
-            SELECT * FROM routes
-            WHERE destination = ?
-            ORDER BY origin ASC
-        """, (destination,))
-    else:
-        cursor.execute("SELECT * FROM routes ORDER BY origin ASC, destination ASC")
+        query = {"destination": destination}
 
-    rows = cursor.fetchall()
-    conn.close()
-
-    for row in rows:
+    cursor = routes_collection.find(query).sort([("origin", 1), ("destination", 1)])
+    routes = []
+    for row in cursor:
         CurrFlow = ''
         isActive = False
         hasFlows = False
-        route_origin = row[0]
-        route_notes = row[4]
+        route_origin = row.get('origin')
+        route_notes = row.get('notes', '')
 
-        flow = ''
         if destination in RUNWAY_FLOW_MAP:
             hasFlows = True
             CurrFlow = get_flow(destination)
             if CurrFlow and CurrFlow.upper() in route_notes.upper():
                 isActive = True
-        else:
-            hasFlows = False
+
         if origin and origin in route_notes:
             route_origin = origin
 
         routes.append({
             'origin': route_origin,
-            'destination': row[1],
-            'route': row[2],
-            'altitude': row[3],
+            'destination': row.get('destination'),
+            'route': row.get('route'),
+            'altitude': row.get('altitude'),
             'notes': route_notes,
             'flow': CurrFlow or '',
             'isActive': isActive,
@@ -143,7 +154,6 @@ def authenticate():
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        from flask import request
         auth = request.authorization
         if not auth or not check_auth(auth.username, auth.password):
             return authenticate()
@@ -155,11 +165,7 @@ def requires_auth(f):
 def admin_routes():
     if is_api_request():
         return "Admin unavailable via API domain", 403
-    conn = sqlite3.connect('routes.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT rowid, * FROM routes ORDER BY origin ASC, destination ASC")
-    rows= cursor.fetchall()
-    conn.close()
+    rows = list(routes_collection.find())
     return render_template("admin_routes.html", routes=rows)
 
 @app.route('/admin/routes/add', methods=['GET', 'POST'])
@@ -168,57 +174,42 @@ def add_route():
     if is_api_request():
         return "Admin unavailable via API domain", 403
     if request.method == 'POST':
-        origin = request.form['origin']
-        destination = request.form['destination']
-        route = request.form['route']
-        altitude = request.form['altitude']
-        notes = request.form['notes']
-
-        conn = sqlite3.connect('routes.db')
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO routes (origin, destination, route, altitude, notes) VALUES (?, ?, ?, ?, ?)",
-                       (origin, destination, route, altitude, notes))
-        conn.commit()
-        conn.close()
+        routes_collection.insert_one({
+            "origin": request.form['origin'],
+            "destination": request.form['destination'],
+            "route": request.form['route'],
+            "altitude": request.form['altitude'],
+            "notes": request.form['notes']
+        })
         return redirect(url_for('admin_routes'))
     return render_template("edit_route.html", action="Add")
 
-@app.route('/admin/routes/delete/<int:route_id>')
+@app.route('/admin/routes/delete/<route_id>')
 @requires_auth
 def delete_route(route_id):
     if is_api_request():
         return "Admin unavailable via API domain", 403
-    conn = sqlite3.connect('routes.db')
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM routes WHERE rowid=?", (route_id,))
-    conn.commit()
-    conn.close()
+    routes_collection.delete_one({"_id": ObjectId(route_id)})
     return redirect(url_for('admin_routes'))
 
-@app.route('/admin/routes/edit/<int:route_id>', methods=['GET', 'POST'])
+@app.route('/admin/routes/edit/<route_id>', methods=['GET', 'POST'])
 @requires_auth
 def edit_route(route_id):
     if is_api_request():
         return "Admin unavailable via API domain", 403
-    conn = sqlite3.connect('routes.db')
-    cursor = conn.cursor()
     if request.method == 'POST':
-        origin = request.form['origin']
-        destination = request.form['destination']
-        route = request.form['route']
-        altitude = request.form['altitude']
-        notes = request.form['notes']
-        cursor.execute("""
-            UPDATE routes SET origin=?, destination=?, route=?, altitude=?, notes=?
-            WHERE rowid=?
-        """, (origin, destination, route, altitude, notes, route_id))
-        conn.commit()
-        conn.close()
+        routes_collection.update_one(
+            {"_id": ObjectId(route_id)},
+            {"$set": {
+                "origin": request.form['origin'],
+                "destination": request.form['destination'],
+                "route": request.form['route'],
+                "altitude": request.form['altitude'],
+                "notes": request.form['notes']
+            }}
+        )
         return redirect(url_for('admin_routes'))
-
-    cursor.execute("SELECT * FROM routes WHERE rowid=?", (route_id,))
-    row = cursor.fetchone()
-    conn.close()
+    row = routes_collection.find_one({"_id": ObjectId(route_id)})
     return render_template("edit_route.html", route=row, action="Edit")
 
 @app.route('/map')
@@ -240,27 +231,17 @@ def crossings():
         return "Not available on API subdomain", 404
 
     destination = request.args.get('destination','').upper()
+    query = {"destination": destination} if destination else {}
+    rows = crossings_collection.find(query).sort("destination", 1)
+
     crossings = []
-    conn = sqlite3.connect('crossings.db')
-    cursor = conn.cursor()
-
-    if destination:
-        cursor.execute("""
-            SELECT * FROM crossings
-            WHERE destination = ?""", (destination,))
-    else:
-        cursor.execute("SELECT * FROM crossings ORDER BY destination ASC")
-    
-    rows = cursor.fetchall()
-    conn.close()
-
     for row in rows:
         crossings.append({
-            'destination': row[0],
-            'fix': row[1],
-            'restriction': row[2],
-            'notes': row[3],
-            'artcc': row[4]
+            'destination': row.get('destination'),
+            'fix': row.get('bdry_fix'),
+            'restriction': row.get('restriction'),
+            'notes': row.get('notes'),
+            'artcc': row.get('artcc')
         })
 
     searched = True
@@ -271,11 +252,7 @@ def crossings():
 def admin_crossings():
     if is_api_request():
         return "Admin unavailable via API domain", 403
-    conn = sqlite3.connect('crossings.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT rowid, * FROM crossings ORDER BY destination ASC")
-    rows = cursor.fetchall()
-    conn.close()
+    rows = list(crossings_collection.find())
     return render_template("admin_crossings.html", crossings=rows)
 
 @app.route('/admin/crossings/add', methods=['GET', 'POST'])
@@ -284,60 +261,42 @@ def add_crossing():
     if is_api_request():
         return "Admin unavailable via API domain", 403
     if request.method == 'POST':
-        destination = request.form['destination']
-        fix = request.form['fix']
-        restriction = request.form['restriction']
-        notes = request.form['notes']
-        artcc = request.form['artcc']
-
-        conn = sqlite3.connect('crossings.db')
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO crossings (destination, bdry_fix, restriction, notes, artcc) VALUES (?, ?, ?, ?, ?)",
-                       (destination, fix, restriction, notes, artcc))
-        conn.commit()
-        conn.close()
+        crossings_collection.insert_one({
+            "destination": request.form['destination'],
+            "bdry_fix": request.form['fix'],
+            "restriction": request.form['restriction'],
+            "notes": request.form['notes'],
+            "artcc": request.form['artcc']
+        })
         return redirect(url_for('admin_crossings'))
     return render_template("edit_crossing.html", action="Add")
 
-@app.route('/admin/crossings/delete/<int:crossing_id>')
+@app.route('/admin/crossings/delete/<crossing_id>')
 @requires_auth
 def delete_crossing(crossing_id):
     if is_api_request():
         return "Admin unavailable via API domain", 403
-    conn = sqlite3.connect('crossings.db')
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM crossings WHERE rowid=?", (crossing_id,))
-    conn.commit()
-    conn.close()
+    crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
     return redirect(url_for('admin_crossings'))
 
-@app.route('/admin/crossings/edit/<int:crossing_id>', methods=['GET', 'POST'])
+@app.route('/admin/crossings/edit/<crossing_id>', methods=['GET', 'POST'])
 @requires_auth
 def edit_crossing(crossing_id):
     if is_api_request():
         return "Admin unavailable via API domain", 403
-    conn = sqlite3.connect('crossings.db')
-    cursor = conn.cursor()
-
     if request.method == 'POST':
-        destination = request.form['destination']
-        fix = request.form['fix']
-        restriction = request.form['restriction']
-        notes = request.form['notes']
-        artcc = request.form['artcc']
-
-        cursor.execute("""
-            UPDATE crossings SET destination=?, bdry_fix=?, restriction=?, notes=?, artcc=? 
-            WHERE rowid=?
-        """, (destination, fix, restriction, notes, artcc, crossing_id))
-
-        conn.commit()
-        conn.close()
+        crossings_collection.update_one(
+            {"_id": ObjectId(crossing_id)},
+            {"$set": {
+                "destination": request.form['destination'],
+                "bdry_fix": request.form['fix'],
+                "restriction": request.form['restriction'],
+                "notes": request.form['notes'],
+                "artcc": request.form['artcc']
+            }}
+        )
         return redirect(url_for('admin_crossings'))
-
-    cursor.execute("SELECT * FROM crossings WHERE rowid=?", (crossing_id,))
-    row = cursor.fetchone()
-    conn.close()
+    row = crossings_collection.find_one({"_id": ObjectId(crossing_id)})
     return render_template("edit_crossing.html", crossing=row, action="Edit")
 
 @app.route('/route-to-skyvector')
