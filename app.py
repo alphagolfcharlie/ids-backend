@@ -35,6 +35,8 @@ client = MongoClient(MONGO_URI)
 db = client["ids"]
 routes_collection = db["routes"]
 crossings_collection = db["crossings"]
+faa_routes_collection = db["faa_prefroutes"]
+
 
 
 def get_flow(airport_code):
@@ -115,6 +117,7 @@ def searchroute(origin, destination):
 
     cursor = routes_collection.find(query).sort([("origin", 1), ("destination", 1)])
     routes = []
+
     for row in cursor:
         CurrFlow = ''
         isActive = False
@@ -139,8 +142,29 @@ def searchroute(origin, destination):
             'notes': route_notes,
             'flow': CurrFlow or '',
             'isActive': isActive,
-            'hasFlows': hasFlows
+            'hasFlows': hasFlows,
+            'source': 'custom'  
         })
+
+    # FAA routes
+    faa_matches = list(faa_routes_collection.find({
+        "Orig": origin,
+        "Dest": destination
+    }))
+
+    for row in faa_matches:
+        routes.append({
+            'origin': origin,
+            'destination': destination,
+            'route': row.get("Route String", ""),
+            'altitude': '',  
+            'notes': row.get("Area", ""),
+            'flow': '',
+            'isActive': False,
+            'hasFlows': False,
+            'source': 'faa'  
+        })
+
     return routes
 
 def check_auth(username, password): 
@@ -299,7 +323,7 @@ def edit_crossing(crossing_id):
     row = crossings_collection.find_one({"_id": ObjectId(crossing_id)})
     return render_template("edit_crossing.html", crossing=row, action="Edit")
 
-@app.route('/route-to-skyvector')
+@app.route('/route-to-skyvector') #api 
 def route_to_skyvector():
     if not is_api_request():
         return "This endpoint is only available on api.alphagolfcharlie.dev", 403
@@ -376,11 +400,11 @@ def check_trainer():
 
 @app.route('/checkroute')
 def checkroute():
-    if not is_api_request():
-        return jsonify({
-            "status": "error",
-            "message": "This endpoint is only available on api.alphagolfcharlie.dev"
-        }), 403
+    #if not is_api_request():
+        #return jsonify({
+            #"status": "error",
+            #"message": "This endpoint is only available on api.alphagolfcharlie.dev"
+       # }), 403
 
     callsign = request.args.get('callsign', '').upper().strip()
     if not callsign:
@@ -404,10 +428,8 @@ def checkroute():
                         "message": f"No flight plan found for {callsign}"
                     }), 404
 
-                origin = fp.get("departure", "").strip().upper()
-                origin = origin[1:]
-                destination = fp.get("arrival", "").strip().upper()
-                destination = destination[1:]
+                origin = fp.get("departure", "").strip().upper()[1:]
+                destination = fp.get("arrival", "").strip().upper()[1:]
                 route = fp.get("route", "").strip().upper()
 
                 if not (origin and destination):
@@ -416,46 +438,58 @@ def checkroute():
                         "message": "Flight plan is missing departure or arrival"
                     }), 400
 
-                # Connect to the database
-                conn = sqlite3.connect("routes.db")
-                cursor = conn.cursor()
-
-                cursor.execute("""
-                    SELECT route FROM routes
-                    WHERE (origin = ? OR notes LIKE ?) AND destination = ?
-                """, (origin, f"%{origin}%", destination))
-
-                matches = cursor.fetchall()
-                conn.close()
-
-                if not matches:
-                    return jsonify({
-                        "status": "not_found",
-                        "message": f"No known routes in database for {origin} to {destination}",
-                        "filed_route": route
-                    }), 404
-
                 def normalize(r): return ' '.join(r.upper().split())
                 route_normalized = normalize(route)
-                matching_routes = [normalize(row[0]) for row in matches]
 
-                if route_normalized in matching_routes:
-                    return jsonify({
-                        "status": "valid",
-                        "message": f"Route is valid for {origin} to {destination}",
-                        "filed_route": route,
-                        "origin": origin,
-                        "destination": destination
-                    }), 200
-                else:
-                    return jsonify({
-                        "status": "invalid",
-                        "message": f"Filed route does not match known routes for {origin} to {destination}",
-                        "filed_route": route,
-                        "valid_routes": [row[0] for row in matches],
-                        "origin": origin,
-                        "destination": destination
-                    }), 200
+                # --- Search your custom routes DB
+                custom_matches = list(routes_collection.find({
+                    "$and": [
+                        {"destination": destination},
+                        {"$or": [
+                            {"origin": origin},
+                            {"notes": {"$regex": origin, "$options": "i"}}
+                        ]}
+                    ]
+                }))
+                custom_normalized = [normalize(row.get("route", "")) for row in custom_matches]
+
+                # --- Search FAA preferred routes DB
+                faa_matches = list(faa_routes_collection.find({
+                    "Orig": origin,
+                    "Dest": destination
+                }))
+
+                faa_normalized = [normalize(row.get("Route String", "")) for row in faa_matches]
+
+
+                is_valid = route_normalized in custom_normalized or route_normalized in faa_normalized
+
+
+                faa_routes = [
+                {
+                    "route": row.get("Route String", ""),
+                    "type": row.get("Type", ""),
+                    "aircraft": row.get("Aircraft", ""),
+                    "area": row.get("Area", ""),
+                    "acntr": row.get("ACNTR", ""),
+                    "dcntr": row.get("DCNTR", "")
+                }
+                for row in faa_matches
+                ]
+
+                return jsonify({
+                    "status": "valid" if is_valid else "invalid",
+                    "filed_route": route,
+                    "origin": origin,
+                    "destination": destination,
+                    "message": (
+                        f"Route is valid for {origin} to {destination}"
+                        if is_valid else
+                        f"Filed route does not match known routes for {origin} to {destination}"
+                    ),
+                    "valid_routes": [row.get("route", "") for row in custom_matches],
+                    "faa_routes": faa_routes
+                }), 200
 
         return jsonify({
             "status": "not_found",

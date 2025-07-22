@@ -2,72 +2,70 @@
 
 {% block content %}
 
-    <h1>Search Flight Routes</h1>
+<h1>Search Flight Routes</h1>
 
-    <form method="GET" action="/search">
-        <label for="origin">Origin Airport:</label><br>
-        <input type="text" id="origin" name="origin" placeholder="e.g. CLE"><br><br>
+<form method="GET" action="/search">
+    <label for="origin">Origin Airport:</label><br>
+    <input type="text" id="origin" name="origin" placeholder="e.g. CLE"><br><br>
 
-        <label for="destination">Destination Airport:</label><br>
-        <input type="text" id="destination" name="destination" placeholder="e.g. ORD"><br><br>
+    <label for="destination">Destination Airport:</label><br>
+    <input type="text" id="destination" name="destination" placeholder="e.g. ORD"><br><br>
 
+    <input type="submit" value="search">
+</form>
 
-        <input type="submit" value="search">
-    </form>
+{% if routes %}
+    <h2>Matching Routes:</h2>
+    <ul style="list-style-type: none; padding-left: 0;">
+    {% for route in routes %}
+        <li class="{% if route.source == 'faa' %}faa-route-card{% else %}card{% endif %} {% if not route.isActive and route.hasFlows %}inactive-route{% endif %}">
+            
+            <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
 
-    {% if routes %}
-        <h2>Matching Routes:</h2>
-        <ul>
-        {% for route in routes %}
-            <li class="{% if not route.isActive and route.hasFlows %} inactive-route {% endif %}">
-                <strong>{{ route.origin }} → {{ route.destination }}</strong><br>
-                {% if route.isActive and route.hasFlows %}
-                    <span style="background-color: green; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;"title="This route is currently active real-world for the selected arrival airport's flow.">Route Active</span>
-                {% endif %}
-                Route: {{ route.route }}
-                <button class="copy-btn" 
-                    data-clipboard-text="{{ route.route }}">
-                    <i class="fas fa-copy"></i> Copy Route
-                </button><br>
-                Altitude: {{ route.altitude or 'No altitude restrictions' }}<br>
-                Notes: <span>{{ route.notes | safe or 'N/A' }}</span>
-                
-            </li><br>
-        {% endfor %}
-        </ul>
-    {% elif searched %}
-        <p>No matching routes found.</p>
-    {% endif %}
+            {% if route.source == 'faa' %}
+                <span class="faa-badge">
+                    FAA Preferred Route
+                </span><br>
+            {% elif route.isActive and route.hasFlows %}
+                <span style="background-color: green; color: white; padding: 3px 10px; border-radius: 3px; font-weight: bold;" 
+                      title="This route is currently active real-world for the selected arrival airport's flow.">
+                    Route Active
+                </span><br>
+            {% endif %}
 
-<!-- Make sure Clipboard.js is loaded at the bottom of the body -->
+            <br>
+            <strong>Route:</strong> {{ route.route }}
+            <button class="copy-btn" 
+                    data-clipboard-text="{{ route.route }}"
+                    style="margin-left: 10px;">
+                <i class="fas fa-copy"></i> Copy Route
+            </button><br>
+
+            <strong>Altitude:</strong> {{ route.altitude or 'No altitude restrictions' }}<br>
+            <strong>Notes:</strong> <span>{{ route.notes | safe or 'N/A' }}</span>
+        </li>
+    {% endfor %}
+    </ul>
+{% elif searched %}
+    <p>No matching routes found.</p>
+{% endif %}
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialize Clipboard.js once the DOM is ready
         var clipboard = new ClipboardJS('.copy-btn');
-        
-        clipboard.on('success', function(e) {
-            // Change the button text to 'Copied!' upon success
-            e.trigger.innerText = 'Copied!';
 
-            // Reset the button text back to 'Copy Route' after 2 seconds
+        clipboard.on('success', function(e) {
+            e.trigger.innerText = 'Copied!';
             setTimeout(function() {
                 e.trigger.innerText = 'Copy Route';
             }, 2000);
-
-            // Optionally, you can remove the alert here
-            // alert('Route copied to clipboard!');
         });
 
         clipboard.on('error', function(e) {
-            // You can remove the alert here if you don't want to show anything
-            // alert('Oops, unable to copy!');
+            console.error('Copy failed', e);
         });
     });
 </script>
-
-
-
 
 {% endblock %}
