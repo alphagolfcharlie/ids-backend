@@ -415,5 +415,99 @@ def check_trainer():
         'alt_correct': alt_correct
     })
 
+@app.route('/checkroute')
+def checkroute():
+    if not is_api_request():
+        return jsonify({
+            "status": "error",
+            "message": "This endpoint is only available on api.alphagolfcharlie.dev"
+        }), 403
+
+    callsign = request.args.get('callsign', '').upper().strip()
+    if not callsign:
+        return jsonify({
+            "status": "error",
+            "message": "Missing 'callsign' parameter"
+        }), 400
+
+    try:
+        print(f"Looking for: {callsign}")
+        datafeed = "https://data.vatsim.net/v3/vatsim-data.json"
+        response = requests.get(datafeed, timeout=5)
+        data = response.json()
+
+        for pilot in data.get('pilots', []):
+            if pilot.get('callsign', '').upper() == callsign:
+                fp = pilot.get('flight_plan')
+                if not fp:
+                    return jsonify({
+                        "status": "not_found",
+                        "message": f"No flight plan found for {callsign}"
+                    }), 404
+
+                origin = fp.get("departure", "").strip().upper()
+                origin = origin[1:]
+                destination = fp.get("arrival", "").strip().upper()
+                destination = destination[1:]
+                route = fp.get("route", "").strip().upper()
+
+                if not (origin and destination):
+                    return jsonify({
+                        "status": "error",
+                        "message": "Flight plan is missing departure or arrival"
+                    }), 400
+
+                # Connect to the database
+                conn = sqlite3.connect("routes.db")
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                    SELECT route FROM routes
+                    WHERE (origin = ? OR notes LIKE ?) AND destination = ?
+                """, (origin, f"%{origin}%", destination))
+
+                matches = cursor.fetchall()
+                conn.close()
+
+                if not matches:
+                    return jsonify({
+                        "status": "not_found",
+                        "message": f"No known routes in database for {origin} to {destination}",
+                        "filed_route": route
+                    }), 404
+
+                def normalize(r): return ' '.join(r.upper().split())
+                route_normalized = normalize(route)
+                matching_routes = [normalize(row[0]) for row in matches]
+
+                if route_normalized in matching_routes:
+                    return jsonify({
+                        "status": "valid",
+                        "message": f"Route is valid for {origin} to {destination}",
+                        "filed_route": route,
+                        "origin": origin,
+                        "destination": destination
+                    }), 200
+                else:
+                    return jsonify({
+                        "status": "invalid",
+                        "message": f"Filed route does not match known routes for {origin} to {destination}",
+                        "filed_route": route,
+                        "valid_routes": [row[0] for row in matches],
+                        "origin": origin,
+                        "destination": destination
+                    }), 200
+
+        return jsonify({
+            "status": "not_found",
+            "message": f"Callsign {callsign} not found in VATSIM data"
+        }), 404
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Internal server error: {str(e)}"
+        }), 500
+
 if __name__ == "__main__":
     app.run()
