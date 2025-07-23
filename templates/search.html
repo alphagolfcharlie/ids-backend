@@ -18,10 +18,14 @@
     <h2>Matching Routes:</h2>
     <ul style="list-style-type: none; padding-left: 0;">
     {% for route in routes %}
-        <li class="{% if route.source == 'faa' %}faa-route-card{% endif %}{% if route.isActive and route.hasFlows %}active-route-card{% endif %}{% if not route.isActive and route.hasFlows %}inactive-route{% endif %}">
+        <li class="{% if route.isEvent %}event-route-card{% endif %}{% if route.source == 'faa' %}faa-route-card{% endif %}{% if route.isActive and route.hasFlows %}active-route-card{% endif %}{% if not route.isActive and route.hasFlows %}inactive-route{% endif %}">
             
             <strong>{{ route.origin }} → {{ route.destination }}</strong><br><br>
-            {% if route.source == 'faa' %}
+            {% if route.isEvent %}
+                <span class="event-badge">
+                    Event Route
+                </span><br>
+            {% elif route.source == 'faa' %}
                 <span class="faa-badge">
                     FAA Preferred Route
                 </span><br>
@@ -37,7 +41,13 @@
                     data-clipboard-text="{{ route.route }}"
                     style="margin-left: 10px;">
                 <i class="fas fa-copy"></i> Copy Route
-            </button><br>
+            </button>
+            <button class="skyvector" style="width: 250px;"
+                    onclick="openSkyvector('{{ route.origin }}', '{{ route.route }}', '{{ route.destination }}')">
+                View on SkyVector
+            </button>
+            
+            <br>
 
             <strong>Altitude:</strong> {{ route.altitude or 'No altitude restrictions' }}<br>
             <strong>Notes:</strong> <span>{{ route.notes | safe or 'N/A' }}</span>
@@ -64,6 +74,15 @@
             console.error('Copy failed', e);
         });
     });
+
+
+    function openSkyVector(origin, route, destination) {
+        const formattedRoute = route.trim().replace(/\s+/g, '%20');
+        const url = `https://skyvector.com/?fpl=${origin}%20${formattedRoute}%20${destination}`;
+        window.open(url, '_blank');
+    }
+
+
 </script>
 
 {% endblock %}

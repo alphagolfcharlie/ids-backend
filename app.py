@@ -122,14 +122,20 @@ def searchroute(origin, destination):
         CurrFlow = ''
         isActive = False
         hasFlows = False
+        eventRoute = False
         route_origin = row.get('origin')
         route_notes = row.get('notes', '')
+
+        if 'EVENT' in route_notes.upper():
+                eventRoute = True
 
         if destination in RUNWAY_FLOW_MAP:
             hasFlows = True
             CurrFlow = get_flow(destination)
             if CurrFlow and CurrFlow.upper() in route_notes.upper():
                 isActive = True
+            
+
 
         if origin and origin in route_notes:
             route_origin = origin
@@ -143,7 +149,8 @@ def searchroute(origin, destination):
             'flow': CurrFlow or '',
             'isActive': isActive,
             'hasFlows': hasFlows,
-            'source': 'custom'  
+            'source': 'custom',
+            'isEvent': eventRoute
         })
 
     # FAA routes
@@ -322,6 +329,9 @@ def edit_crossing(crossing_id):
         return redirect(url_for('admin_crossings'))
     row = crossings_collection.find_one({"_id": ObjectId(crossing_id)})
     return render_template("edit_crossing.html", crossing=row, action="Edit")
+
+
+
 
 @app.route('/route-to-skyvector') #api 
 def route_to_skyvector():

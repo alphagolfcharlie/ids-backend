@@ -203,6 +203,21 @@ form {
     align-items: center;
 }
 
+.skyvector {
+    background-color: transparent;
+    border: none;
+    color: cyan;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 5px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.skyvector:hover {
+    text-decoration: underline;
+}
+
 .copy-btn i {
     margin-right: 5px;
 }
@@ -608,3 +623,22 @@ background-color: #3d3d3d;
     color: #ffffff; 
 }
                
+  .event-route-card {
+    background-color: #0f172a;
+    border: 2px solid #ff5304; 
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px;
+    color: #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.event-badge {
+    background-color: #ff5304;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-weight: bold;
+    display: inline-block;
+}
