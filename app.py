@@ -25,6 +25,14 @@ RUNWAY_FLOW_MAP = {
         "NORTH": ["3", "4"],
         "WEST": ["27"]
     },
+    "ATL": {
+        "WEST": ["26","27","28"],
+        "EAST": ["8","9","10"]
+    },
+    "DFW": {
+        "SOUTH": ["18","17"],
+        "NORTH": ["36","35"]
+    }
 }
 
 
@@ -60,6 +68,10 @@ def get_flow(airport_code):
         for flow_direction, runways in flow_config.items():
             for rwy in runways:
                 if re.search(rf"DEPG RWY {rwy}[LRC]?", atis_datis):
+                    return flow_direction.upper()
+                elif re.search(rf"DEPG RWYS {rwy}[LRC]?", atis_datis):
+                    return flow_direction.upper()               
+                elif re.search(rf"DEPTG RWY {rwy}[LRC]?", atis_datis):
                     return flow_direction.upper()
         return None
     except Exception as e:
