@@ -43,7 +43,9 @@
                 <i class="fas fa-copy"></i> Copy Route
             </button>
             <button class="skyvector" style="width: 250px;"
-                    onclick="openSkyvector('{{ route.origin }}', '{{ route.route }}', '{{ route.destination }}')">
+                    data-origin="{{ route.origin }}"
+                    data-route="{{ route.route }}"
+                    data-destination="{{ route.destination }}">
                 View on SkyVector
             </button>
             
@@ -81,6 +83,16 @@
         const url = `https://skyvector.com/?fpl=${origin}%20${formattedRoute}%20${destination}`;
         window.open(url, '_blank');
     }
+
+    document.querySelectorAll('.skyvector').forEach(button => {
+    button.addEventListener('click', () => {
+        const origin = button.getAttribute('data-origin');
+        const route = button.getAttribute('data-route').trim().replace(/\s+/g, '%20');
+        const destination = button.getAttribute('data-destination');
+        const url = `https://skyvector.com/?fpl=${origin}%20${route}%20${destination}`;
+        window.open(url, '_blank');
+    });
+});
 
 
 </script>
