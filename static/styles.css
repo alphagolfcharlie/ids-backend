@@ -482,46 +482,6 @@ background-color: #3d3d3d;
   }
   
   
-  
-  .split-set-selector-container {
-    margin: 20px 0;
-    font-family: 'Inter', sans-serif;
-    color: #dce3f0;
-  }
-  
-  #splitSetSelector {
-    background-color: #0f1629;
-    color: #dce3f0;
-    border: 1px solid #4fc3f7;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-size: 1rem;
-    margin-top: 8px;
-  }
-  
-  .split-set-preview {
-    background-color: #0b1220;
-    border: 1px solid #2b3a55;
-    border-radius: 10px;
-    padding: 10px;
-    margin-top: 15px;
-  }
-  
-  .split-set-preview ul {
-    list-style: none;
-    padding-left: 0;
-  }
-  
-  .split-set-preview li {
-    margin: 6px 0;
-    padding: 4px 6px;
-    background-color: #0f1629;
-    border-left: 4px solid #4fc3f7;
-    border-radius: 6px;
-    font-size: 0.9rem;
-  }
-  
-
 
   .container {
       max-width: 900px;
@@ -602,6 +562,7 @@ background-color: #3d3d3d;
     font-size: 0.9em;
     font-weight: bold;
     display: inline-block;
+    margin-bottom: 10px;
 }
 
 .active-route {
@@ -621,6 +582,17 @@ background-color: #3d3d3d;
     padding: 15px;
     margin: 20px;
     color: #ffffff; 
+}
+
+.inactive-faa-card {
+    opacity: 0.5; /* Dim the route */
+    color: #aaa;  /* Grey text */
+    background-color: #0f172a;
+    border: 2px solid #708090; 
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
                
   .event-route-card {

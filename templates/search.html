@@ -18,22 +18,29 @@
     <h2>Matching Routes:</h2>
     <ul style="list-style-type: none; padding-left: 0;">
     {% for route in routes %}
-        <li class="{% if route.isEvent %}event-route-card{% endif %}{% if route.source == 'faa' %}faa-route-card{% endif %}{% if route.isActive and route.hasFlows %}active-route-card{% endif %}{% if not route.isActive and route.hasFlows %}inactive-route{% endif %}">
+    <li class="{% if route.isActive and route.hasFlows %}
+                active-route-card
+            {% elif not route.isActive and route.hasFlows and route.source == 'faa' %}
+                inactive-faa-card
+            {% elif route.isEvent %}
+                event-route-card
+            {% elif route.source == 'faa' %}
+                faa-route-card
+            {% elif not route.isActive and route.hasFlows %}
+                inactive-route
+            {% endif %}">
             
             <strong>{{ route.origin }} → {{ route.destination }}</strong><br><br>
-            {% if route.isEvent %}
-                <span class="event-badge">
-                    Event Route
-                </span><br>
-            {% elif route.source == 'faa' %}
-                <span class="faa-badge">
-                    FAA Preferred Route
-                </span><br>
-            {% elif route.isActive and route.hasFlows %}
-                <span class="active-route">
-                    Route Active
-                </span><br>
+            {% if route.source == 'faa' %}
+                <span class="faa-badge">FAA Preferred Route</span><br>
             {% endif %}
+            {% if route.isEvent %}
+                <span class="event-badge">Event Route</span><br>
+            {% endif %}
+            {% if route.isActive and route.hasFlows %}
+                <span class="active-route">Route Active</span><br>
+            {% endif %}
+
 
             <br>
             <strong>Route:</strong> {{ route.route }}

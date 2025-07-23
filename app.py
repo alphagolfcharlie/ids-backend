@@ -181,16 +181,31 @@ def searchroute(origin, destination):
     faa_matches = list(faa_routes_collection.find(faa_query))
 
     for row in faa_matches:
+        isActive = False
+        hasFlows = False
+        flow = ''
+        direction = row.get("Direction", "")  # e.g., "DTW North Flow"
+
+        # Try to extract the flow name from the "Direction" field
+        if direction and destination in RUNWAY_FLOW_MAP:
+            hasFlows = True
+            flow = get_flow(destination)
+
+            # Normalize both for comparison
+            if flow and flow.upper() in direction.upper():
+                isActive = True
+
         routes.append({
             'origin': origin,
             'destination': destination,
             'route': row.get("Route String", ""),
-            'altitude': '',  
+            'altitude': '',
             'notes': row.get("Area", ""),
-            'flow': '',
-            'isActive': False,
-            'hasFlows': False,
-            'source': 'faa'  
+            'flow': flow,
+            'isActive': isActive,
+            'hasFlows': hasFlows,
+            'source': 'faa',
+            'isEvent': False
         })
 
     return routes
