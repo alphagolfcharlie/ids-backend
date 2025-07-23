@@ -154,10 +154,31 @@ def searchroute(origin, destination):
         })
 
     # FAA routes
-    faa_matches = list(faa_routes_collection.find({
-        "Orig": origin,
-        "Dest": destination
-    }))
+    faa_query = {}
+
+    if origin and destination:
+        faa_query = {
+            "$and": [
+                {
+                    "$or": [
+                        {"Orig": origin},
+                        {"Area": {"$regex": origin, "$options": "i"}}
+                    ]
+                },
+                {"Dest": destination}
+            ]
+        }
+    elif origin:
+        faa_query = {
+            "$or": [
+                {"Orig": origin},
+                {"Area": {"$regex": origin, "$options": "i"}}
+            ]
+        }
+    elif destination:
+        faa_query = {"Dest": destination}
+
+    faa_matches = list(faa_routes_collection.find(faa_query))
 
     for row in faa_matches:
         routes.append({

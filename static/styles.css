@@ -586,7 +586,7 @@ background-color: #3d3d3d;
 
   .faa-route-card {
     background-color: #0f172a;
-    border: 2px solid #e91e63; 
+    border: 2px solid #00838f; 
     border-radius: 8px;
     padding: 15px;
     margin: 20px;
@@ -595,7 +595,7 @@ background-color: #3d3d3d;
 }
 
 .faa-badge {
-    background-color: #e91e63;
+    background-color: #00838f;
     color: white;
     padding: 3px 10px;
     border-radius: 3px;
