@@ -16,7 +16,6 @@ load_dotenv()
 
 
 app = Flask(__name__)
-
 def is_api_request():
     return request.host.startswith("api.")
 

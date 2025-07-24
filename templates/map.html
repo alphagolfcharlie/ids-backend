@@ -7,21 +7,7 @@
 <!-- Map container -->
 <div id="map" style="height: 700px; margin: 20px auto; width: 80%; border-radius: 10px; padding: 50px"></div>
 
-<button onclick="openSplitEditor()" style="margin-left: 10%; margin-top: 20px">Create New Split</button>
 
-<div id="splitEditor" style="display:none; padding: 15px; background: white; border: 1px solid black; margin-top: 20px; margin-left: 10%">
-  <h3>Create a Split</h3>
-  
-  <label>Split Name:</label><br>
-  <select id="splitNameSelect" style="width: 100%; margin-bottom: 10px;"></select><br>
-
-
-  <div id="sectorCheckboxes"></div>
-
-  <br>
-  <button onclick="confirmSplit()">Save Split</button>
-  <button onclick="cancelSplitEditor()">Cancel</button>
-</div>
 
 
 
@@ -125,47 +111,6 @@ function loadSector(url, options = {}) {
 
 <!--Splits-->
 
-<script>
-  const usedSectors = new Set();
-  const createdSplits = [];
-  const splitColors = ['#4fc3f7', '#81c784', '#ffb74d', '#f06292', '#9575cd', '#aed581', '#fdd835', '#7986cb'];
-  let splitColorIndex = 0;
-  let editingSplitIndex = null;  // For editing splits
-  
-  const predefinedSplitSets = [
-    {
-      name: "two",
-      description: "Simple east/west split",
-      splits: [
-        {
-          name: "Ravenna 48",
-          frequency: "129.875",
-          color: "#81c784",
-          sectorIds: ["SKY07", "RAV48", "ECK18", "DET28", "HUD27"]
-        },
-        {
-          name: "Bellaire 66",
-          frequency: "125.425",
-          color: "#ba68c8",
-          sectorIds: ["AIR66", "DSV36", "GEE37", "WRN77", "BKI57"]
-        }
-      ]
-    },
-    {
-      name: "one",
-      description: "1 ctr online",
-      splits: [
-        {
-          name: "Ravenna 48",
-          frequency: "119.875",
-          color: "#4fc3f7",
-          sectorIds: ["SKY07", "ECK18", "HUD27", "DET28", "DSV36", "GEE37", "RAV48", "BKI57", "AIR66", "WRN77"]
-        }
-      ]
-    }
-  ];
-
-  </script>
   
   
 <!--Pull aircraft and load onto map-->

@@ -3,40 +3,133 @@
 
 {% block content %}
 <h2>Airport Status Dashboard</h2><br>
-<div id="airportStatusContainer" style="display: flex; gap: 20px; flex-wrap: wrap;"></div>
+
+<div style="display: flex; gap: 20px;">
+  <!-- Left column: Airport cards -->
+  <div id="airportStatusContainer" style="flex: 1 1 25%; display: flex; flex-direction: column; gap: 15px;">
+    <!-- Airport cards injected here -->
+  </div>
+
+  <!-- Right column: Map -->
+  <div style="flex: 2 1 75%; position: relative;">
+    <div id="map" style="height: 700px; border-radius: 10px;"></div>
+  </div>
+</div>
+
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 
 <script>
-  async function loadAirportData() {
-    const res = await fetch('/api/airport_info');
-    const data = await res.json();
+  const CACHE_KEY = 'airportInfoCache';
+  const CACHE_TIME_KEY = 'airportInfoCacheTimestamp';
+  const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
+
+  const icaoList = ['KDTW', 'KCLE', 'KBUF', 'KPIT'];
+
+  function createAirportCards() {
     const container = document.getElementById('airportStatusContainer');
     container.innerHTML = '';
 
-    Object.entries(data).forEach(([icao, info]) => {
-      const previewATIS = info.atis.length > 120 ? info.atis.substring(0, 120) + '...' : info.atis;
-      const previewMETAR = info.metar.length > 70 ? info.metar.substring(0, 70) + '...' : info.metar;
-
+    icaoList.forEach(icao => {
       const card = document.createElement('div');
       card.className = 'airport-card';
+      card.id = `airport-card-${icao}`;
       card.innerHTML = `
         <h3 class="airport-title">${icao}</h3>
 
         <p><strong>METAR:</strong></p>
         <div class="metar-section">
-          <div class="metar-preview" id="metar-preview-${icao}">${previewMETAR}</div>
-          <div class="metar-full hidden" id="metar-full-${icao}">${info.metar}</div>
-          ${info.metar.length > 70 ? `<button onclick="toggleSection('${icao}', 'metar')" class="toggle-btn">View More</button>` : ''}
+          <div class="metar-preview" id="metar-preview-${icao}">Loading METAR...</div>
+          <div class="metar-full hidden" id="metar-full-${icao}"></div>
         </div>
 
         <p><strong>ATIS:</strong></p>
         <div class="atis-section">
-          <div class="atis-preview" id="atis-preview-${icao}">${previewATIS}</div>
-          <div class="atis-full hidden" id="atis-full-${icao}">${info.atis.replace(/\n/g, '<br>')}</div>
-          ${info.atis.length > 120 ? `<button onclick="toggleSection('${icao}', 'atis')" class="toggle-btn">View More</button>` : ''}
+          <div class="atis-preview" id="atis-preview-${icao}">Loading ATIS...</div>
+          <div class="atis-full hidden" id="atis-full-${icao}"></div>
         </div>
-
       `;
       container.appendChild(card);
+    });
+  }
+
+  async function loadAirportData() {
+    const now = Date.now();
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    const cachedTimestamp = localStorage.getItem(CACHE_TIME_KEY);
+
+    if (cachedData && cachedTimestamp && (now - cachedTimestamp < CACHE_DURATION)) {
+      console.log('Using cached airport data');
+      updateAirportCards(JSON.parse(cachedData));
+    } else {
+      try {
+        console.log('Fetching fresh airport data');
+        const res = await fetch('/api/airport_info');
+        if (!res.ok) throw new Error('Network response was not ok');
+
+        const data = await res.json();
+        updateAirportCards(data);
+
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(CACHE_TIME_KEY, now.toString());
+      } catch (error) {
+        console.error('Failed to fetch airport data:', error);
+        if (cachedData) {
+          console.log('Using stale cached data');
+          updateAirportCards(JSON.parse(cachedData));
+        } else {
+          icaoList.forEach(icao => {
+            document.getElementById(`metar-preview-${icao}`).textContent = 'Unable to load METAR.';
+            document.getElementById(`atis-preview-${icao}`).textContent = 'Unable to load ATIS.';
+          });
+        }
+      }
+    }
+  }
+
+  function updateAirportCards(data) {
+    Object.entries(data).forEach(([icao, info]) => {
+      const previewATIS = info.atis.length > 120 ? info.atis.substring(0, 120) + '...' : info.atis;
+      const previewMETAR = info.metar.length > 70 ? info.metar.substring(0, 70) + '...' : info.metar;
+
+      const metarPreviewEl = document.getElementById(`metar-preview-${icao}`);
+      const metarFullEl = document.getElementById(`metar-full-${icao}`);
+
+      if (metarPreviewEl && metarFullEl) {
+        metarPreviewEl.textContent = previewMETAR;
+        metarFullEl.textContent = info.metar;
+
+        let btn = metarFullEl.nextElementSibling;
+        if (info.metar.length > 70 && !btn) {
+          const button = document.createElement('button');
+          button.className = 'toggle-btn';
+          button.textContent = 'View More';
+          button.onclick = () => toggleSection(icao, 'metar');
+          metarFullEl.insertAdjacentElement('afterend', button);
+        } else if (info.metar.length <= 70 && btn) {
+          btn.remove();
+        }
+      }
+
+      const atisPreviewEl = document.getElementById(`atis-preview-${icao}`);
+      const atisFullEl = document.getElementById(`atis-full-${icao}`);
+
+      if (atisPreviewEl && atisFullEl) {
+        atisPreviewEl.innerHTML = previewATIS.replace(/\n/g, '<br>');
+        atisFullEl.innerHTML = info.atis.replace(/\n/g, '<br>');
+
+        let btn = atisFullEl.nextElementSibling;
+        if (info.atis.length > 120 && !btn) {
+          const button = document.createElement('button');
+          button.className = 'toggle-btn';
+          button.textContent = 'View More';
+          button.onclick = () => toggleSection(icao, 'atis');
+          atisFullEl.insertAdjacentElement('afterend', button);
+        } else if (info.atis.length <= 120 && btn) {
+          btn.remove();
+        }
+      }
     });
   }
 
@@ -56,7 +149,101 @@
     }
   }
 
+  createAirportCards();
   loadAirportData();
-  setInterval(loadAirportData, 180000); // auto-refresh every 3 minutes
+  setInterval(loadAirportData, CACHE_DURATION);
+</script>
+
+<!-- MAP INIT -->
+<script>
+  const cleCenter = [41.7699, -80.8574];
+  const map = L.map('map').setView(cleCenter, 7);
+  const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  });
+  dark.addTo(map);
+
+  const defaultStyle = {
+    color: 'blue',
+    weight: 2,
+    fillOpacity: 0.2
+  };
+
+  const loadedSectors = {};
+  const sectorToLayer = {};
+
+  function loadSector(url, options = {}) {
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        const geojson = L.geoJSON(data, {
+          style: () => ({
+            color: options.color || defaultStyle.color,
+            weight: defaultStyle.weight,
+            fillOpacity: defaultStyle.fillOpacity
+          }),
+          onEachFeature: function (feature, layer) {
+            const area = feature.properties.area || options.label || 'Unknown';
+            const sector = feature.properties.sector || 'Unnamed';
+            const id = `${area} - ${sector}`;
+
+            layer.bindPopup(id);
+            sectorToLayer[id] = layer;
+          }
+        }).addTo(map);
+
+        loadedSectors[url] = geojson;
+      })
+      .catch(err => console.error("Error loading sector:", url, err));
+  }
+
+  // Load geojson sectors
+  [
+    ['a1h.geojson', 'Area 1 High'],
+    ['a2hpoly.geojson', 'Area 2 High'],
+    ['a3hpoly.geojson', 'Area 3 High'],
+    ['a4hpoly.geojson', 'Area 4 High'],
+    ['a5hpoly.geojson', 'Area 5 High'],
+    ['a6hpoly.geojson', 'Area 6 High'],
+    ['a7hpoly.geojson', 'Area 7 High']
+  ].forEach(([file, label]) => {
+    loadSector(`/static/sectors/high/${file}`, { label, color: 'green' });
+  });
+
+  // Load aircraft
+  fetch('/aircraft')
+    .then(res => res.json())
+    .then(data => {
+      data.forEach(aircraft => {
+        if (aircraft.lat && aircraft.lon) {
+          const zobAirports = ["KBUF", "KCLE", "KDTW", "KPIT"];
+          let color = 'blue';
+
+          if (zobAirports.includes(aircraft.departure)) color = 'red';
+          else if (zobAirports.includes(aircraft.destination)) color = 'yellow';
+
+          L.circle([aircraft.lat, aircraft.lon], {
+            color,
+            fillColor: '#30f',
+            fillOpacity: 0.5,
+            radius: 300
+          }).addTo(map)
+            .bindTooltip(`${aircraft.callsign} ${aircraft.departure} ➔ ${aircraft.destination}`, {
+              sticky: true,
+              direction: 'top'
+            })
+            .bindPopup(`
+              <div style="font-size: 16px; font-weight: bold;">
+                ${aircraft.callsign} ${aircraft.departure} ➔ ${aircraft.destination} - ${aircraft.altitude}
+              </div>
+              <div style="font-size: 13px; color: gray; margin-top: 5px; max-height: 100px; overflow-y: auto;">
+                ${aircraft.route}
+              </div>
+            `);
+        }
+      });
+    });
 </script>
 {% endblock %}
