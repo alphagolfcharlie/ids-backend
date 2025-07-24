@@ -171,6 +171,15 @@ def normalize(text):
     except Exception:
         return ''
 
+@app.route('/api/routes')
+def api_routes():
+    origin = request.args.get('origin', '').upper()
+    destination = request.args.get('destination', '').upper()
+    routes = searchroute(origin, destination)
+
+    return jsonify(routes)
+
+
 def searchroute(origin, destination):
     query = {}
     if origin and destination:
