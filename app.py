@@ -108,9 +108,16 @@ def search():
     return render_template("search.html", routes=routes, searched=searched)
 
 def searchroute(origin, destination):
-    query = {}
+    def normalize(text):
+        return ' '.join(text.strip().upper().split()) if text else ''
+
+    seen_routes = set()  # To track unique (origin, dest, route) combos
+    routes = []
+
+    # --- Custom Routes Query
+    custom_query = {}
     if origin and destination:
-        query = {
+        custom_query = {
             "$and": [
                 {"$or": [
                     {"origin": origin},
@@ -120,63 +127,62 @@ def searchroute(origin, destination):
             ]
         }
     elif origin:
-        query = {"$or": [
+        custom_query = {"$or": [
             {"origin": origin},
             {"notes": {"$regex": origin, "$options": "i"}}
         ]}
     elif destination:
-        query = {"destination": destination}
+        custom_query = {"destination": destination}
 
-    cursor = routes_collection.find(query).sort([("origin", 1), ("destination", 1)])
-    routes = []
+    custom_cursor = routes_collection.find(custom_query).sort([("origin", 1), ("destination", 1)])
 
-    for row in cursor:
-        CurrFlow = ''
+    for row in custom_cursor:
+        route_string = normalize(row.get('route', ''))
+        route_origin = row.get('origin')
+        route_destination = row.get('destination')
+        route_notes = row.get('notes', '')
+        route_key = (normalize(route_origin), normalize(route_destination), route_string)
+
+        if route_key in seen_routes:
+            continue  # Skip duplicate
+        seen_routes.add(route_key)
+
+        eventRoute = 'EVENT' in route_notes.upper()
         isActive = False
         hasFlows = False
-        eventRoute = False
-        route_origin = row.get('origin')
-        route_notes = row.get('notes', '')
-
-        if 'EVENT' in route_notes.upper():
-                eventRoute = True
+        CurrFlow = ''
 
         if destination in RUNWAY_FLOW_MAP:
             hasFlows = True
             CurrFlow = get_flow(destination)
             if CurrFlow and CurrFlow.upper() in route_notes.upper():
                 isActive = True
-            
-
 
         if origin and origin in route_notes:
             route_origin = origin
 
         routes.append({
             'origin': route_origin,
-            'destination': row.get('destination'),
-            'route': row.get('route'),
+            'destination': route_destination,
+            'route': route_string,
             'altitude': row.get('altitude'),
             'notes': route_notes,
-            'flow': CurrFlow or '',
+            'flow': CurrFlow,
             'isActive': isActive,
             'hasFlows': hasFlows,
             'source': 'custom',
             'isEvent': eventRoute
         })
 
-    # FAA routes
+    # --- FAA Routes Query
     faa_query = {}
-
     if origin and destination:
         faa_query = {
             "$and": [
-                {
-                    "$or": [
-                        {"Orig": origin},
-                        {"Area": {"$regex": origin, "$options": "i"}}
-                    ]
-                },
+                {"$or": [
+                    {"Orig": origin},
+                    {"Area": {"$regex": origin, "$options": "i"}}
+                ]},
                 {"Dest": destination}
             ]
         }
@@ -193,24 +199,31 @@ def searchroute(origin, destination):
     faa_matches = list(faa_routes_collection.find(faa_query))
 
     for row in faa_matches:
+        route_string = normalize(row.get("Route String", ""))
+        route_origin = origin
+        route_destination = destination
+        route_key = (normalize(route_origin), normalize(route_destination), route_string)
+
+        if route_key in seen_routes:
+            # FAA takes priority — overwrite any matching custom route
+            routes = [r for r in routes if (normalize(r['origin']), normalize(r['destination']), normalize(r['route'])) != route_key]
+        seen_routes.add(route_key)
+
+        flow = ''
         isActive = False
         hasFlows = False
-        flow = ''
-        direction = row.get("Direction", "")  # e.g., "DTW North Flow"
+        direction = row.get("Direction", "")
 
-        # Try to extract the flow name from the "Direction" field
         if direction and destination in RUNWAY_FLOW_MAP:
             hasFlows = True
             flow = get_flow(destination)
-
-            # Normalize both for comparison
             if flow and flow.upper() in direction.upper():
                 isActive = True
 
         routes.append({
-            'origin': origin,
-            'destination': destination,
-            'route': row.get("Route String", ""),
+            'origin': route_origin,
+            'destination': route_destination,
+            'route': route_string,
             'altitude': '',
             'notes': row.get("Area", ""),
             'flow': flow,
