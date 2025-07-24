@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 import os
 from dotenv import load_dotenv
+from collections import OrderedDict
 
 load_dotenv()
 
@@ -107,17 +108,13 @@ def search():
     searched = True
     return render_template("search.html", routes=routes, searched=searched)
 
+def normalize(text):
+    return ' '.join(text.strip().upper().split()) if text else ''
+
 def searchroute(origin, destination):
-    def normalize(text):
-        return ' '.join(text.strip().upper().split()) if text else ''
-
-    seen_routes = set()  # To track unique (origin, dest, route) combos
-    routes = []
-
-    # --- Custom Routes Query
-    custom_query = {}
+    query = {}
     if origin and destination:
-        custom_query = {
+        query = {
             "$and": [
                 {"$or": [
                     {"origin": origin},
@@ -127,54 +124,14 @@ def searchroute(origin, destination):
             ]
         }
     elif origin:
-        custom_query = {"$or": [
+        query = {"$or": [
             {"origin": origin},
             {"notes": {"$regex": origin, "$options": "i"}}
         ]}
     elif destination:
-        custom_query = {"destination": destination}
+        query = {"destination": destination}
 
-    custom_cursor = routes_collection.find(custom_query).sort([("origin", 1), ("destination", 1)])
-
-    for row in custom_cursor:
-        route_string = normalize(row.get('route', ''))
-        route_origin = row.get('origin')
-        route_destination = row.get('destination')
-        route_notes = row.get('notes', '')
-        route_key = (normalize(route_origin), normalize(route_destination), route_string)
-
-        if route_key in seen_routes:
-            continue  # Skip duplicate
-        seen_routes.add(route_key)
-
-        eventRoute = 'EVENT' in route_notes.upper()
-        isActive = False
-        hasFlows = False
-        CurrFlow = ''
-
-        if destination in RUNWAY_FLOW_MAP:
-            hasFlows = True
-            CurrFlow = get_flow(destination)
-            if CurrFlow and CurrFlow.upper() in route_notes.upper():
-                isActive = True
-
-        if origin and origin in route_notes:
-            route_origin = origin
-
-        routes.append({
-            'origin': route_origin,
-            'destination': route_destination,
-            'route': route_string,
-            'altitude': row.get('altitude'),
-            'notes': route_notes,
-            'flow': CurrFlow,
-            'isActive': isActive,
-            'hasFlows': hasFlows,
-            'source': 'custom',
-            'isEvent': eventRoute
-        })
-
-    # --- FAA Routes Query
+    # FAA query
     faa_query = {}
     if origin and destination:
         faa_query = {
@@ -196,22 +153,55 @@ def searchroute(origin, destination):
     elif destination:
         faa_query = {"Dest": destination}
 
+    # Step 1: Fetch all matches
+    custom_matches = list(routes_collection.find(query))
     faa_matches = list(faa_routes_collection.find(faa_query))
 
-    for row in faa_matches:
-        route_string = normalize(row.get("Route String", ""))
-        route_origin = origin
-        route_destination = destination
-        route_key = (normalize(route_origin), normalize(route_destination), route_string)
+    # Step 2: Prepare deduplication dictionary
+    routes_dict = OrderedDict()
 
-        if route_key in seen_routes:
-            # FAA takes priority — overwrite any matching custom route
-            routes = [r for r in routes if (normalize(r['origin']), normalize(r['destination']), normalize(r['route'])) != route_key]
-        seen_routes.add(route_key)
+    # Step 3: Insert custom routes first
+    for row in custom_matches:
+        route_string = normalize(row.get("route", ""))
+        route_origin = row.get("origin", "").upper()
+        route_destination = row.get("destination", "").upper()
+        route_notes = row.get("notes", "")
+        key = (route_origin, route_destination, route_string)
 
-        flow = ''
+        CurrFlow = ''
         isActive = False
         hasFlows = False
+        eventRoute = 'EVENT' in route_notes.upper()
+
+        if destination in RUNWAY_FLOW_MAP:
+            hasFlows = True
+            CurrFlow = get_flow(destination)
+            if CurrFlow and CurrFlow.upper() in route_notes.upper():
+                isActive = True
+
+        routes_dict[key] = {
+            'origin': route_origin,
+            'destination': route_destination,
+            'route': route_string,
+            'altitude': row.get("altitude", ""),
+            'notes': route_notes,
+            'flow': CurrFlow or '',
+            'isActive': isActive,
+            'hasFlows': hasFlows,
+            'source': 'custom',
+            'isEvent': eventRoute
+        }
+
+    # Step 4: Overwrite duplicates with FAA routes
+    for row in faa_matches:
+        route_string = normalize(row.get("Route String", ""))
+        route_origin = origin.upper()
+        route_destination = destination.upper()
+        key = (route_origin, route_destination, route_string)
+
+        isActive = False
+        hasFlows = False
+        flow = ''
         direction = row.get("Direction", "")
 
         if direction and destination in RUNWAY_FLOW_MAP:
@@ -220,7 +210,7 @@ def searchroute(origin, destination):
             if flow and flow.upper() in direction.upper():
                 isActive = True
 
-        routes.append({
+        routes_dict[key] = {
             'origin': route_origin,
             'destination': route_destination,
             'route': route_string,
@@ -231,9 +221,20 @@ def searchroute(origin, destination):
             'hasFlows': hasFlows,
             'source': 'faa',
             'isEvent': False
-        })
+        }
 
-    return routes
+    def sort_priority(route):
+        if route['isEvent']:
+            return 0
+        elif route['isActive']:
+            return 1
+        elif route['source'] == 'custom':
+            return 2
+        else:
+            return 3
+
+    sorted_routes = sorted(routes_dict.values(), key=sort_priority)
+    return sorted_routes
 
 def check_auth(username, password): 
     return username == 'admin' and password == 'password'
