@@ -10,9 +10,22 @@
     <!-- Airport cards injected here -->
   </div>
 
-  <!-- Right column: Map -->
+  <!-- Right column: Map and Crossings -->
   <div style="flex: 2 1 75%; position: relative;">
+    <!-- Map -->
     <div id="map" style="height: 700px; border-radius: 10px;"></div>
+
+    <!-- Crossings Form and Results -->
+    <hr style="margin-top: 30px; margin-bottom: 20px;">
+    <h2>Search Crossing Requirements</h2>
+
+    <form id="crossingForm" style="margin-bottom: 20px;">
+      <label for="destination">Destination Airport:</label><br>
+      <input type="text" id="destination" name="destination" placeholder="e.g. EWR"><br><br>
+      <input type="submit" value="Search">
+    </form>
+
+    <div id="crossingResults"></div>
   </div>
 </div>
 
@@ -246,4 +259,49 @@
       });
     });
 </script>
+
+<script>
+  document.getElementById('crossingForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const destination = document.getElementById('destination').value.trim().toUpperCase();
+    const resultsContainer = document.getElementById('crossingResults');
+    resultsContainer.innerHTML = 'Searching...';
+
+    try {
+      const res = await fetch(`/api/crossings?destination=${destination}`);
+      const data = await res.json();
+
+      if (data.length === 0) {
+        resultsContainer.innerHTML = '<p>No matching LOA items found.</p>';
+        return;
+      }
+
+      const list = document.createElement('ul');
+
+      data.forEach(crossing => {
+        const item = document.createElement('li');
+        item.className = 'card';
+        item.style = 'margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;';
+        item.innerHTML = `
+          <strong>${crossing.destination}</strong><br>
+          <span>Boundary Fix:</span> ${crossing.fix || 'N/A'}<br>
+          <span>Restriction:</span> ${crossing.restriction}<br>
+          <span>Notes:</span> ${crossing.notes || 'N/A'}<br>
+          <span>ARTCC:</span> ${crossing.artcc}
+        `;
+        list.appendChild(item);
+      });
+
+      resultsContainer.innerHTML = '';
+      resultsContainer.appendChild(list);
+
+    } catch (error) {
+      resultsContainer.innerHTML = '<p>Error loading crossings. Please try again later.</p>';
+      console.error(error);
+    }
+  });
+</script>
+
+
 {% endblock %}

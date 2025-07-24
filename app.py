@@ -400,6 +400,25 @@ def crossings():
     searched = True
     return render_template("crossings.html", crossings=crossings)
 
+
+@app.route('/api/crossings')
+def api_crossings():
+    destination = request.args.get('destination', '').upper()
+    query = {"destination": destination} if destination else {}
+    rows = crossings_collection.find(query).sort("destination", 1)
+
+    crossings = []
+    for row in rows:
+        crossings.append({
+            'destination': row.get('destination'),
+            'fix': row.get('bdry_fix'),
+            'restriction': row.get('restriction'),
+            'notes': row.get('notes'),
+            'artcc': row.get('artcc')
+        })
+
+    return jsonify(crossings)
+
 @app.route('/admin/crossings')
 @requires_auth
 def admin_crossings():
