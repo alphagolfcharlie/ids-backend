@@ -109,7 +109,10 @@ def search():
     return render_template("search.html", routes=routes, searched=searched)
 
 def normalize(text):
-    return ' '.join(text.strip().upper().split()) if text else ''
+    try:
+        return ' '.join(str(text).strip().upper().split())
+    except Exception:
+        return ''
 
 def searchroute(origin, destination):
     query = {}
