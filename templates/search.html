@@ -16,55 +16,56 @@
 
 {% if routes %}
     <h2>Matching Routes:</h2>
-    <ul style="list-style-type: none; padding-left: 0;">
+    <div class="route-grid">
     {% for route in routes %}
-    <li class="{% if route.isActive and route.hasFlows %}
-                active-route-card
-            {% elif not route.isActive and route.hasFlows and route.source == 'faa' %}
-                inactive-faa-card
-            {% elif route.isEvent %}
-                event-route-card
-            {% elif route.source == 'faa' %}
-                faa-route-card
-            {% elif not route.isActive and route.hasFlows %}
-                inactive-route
-            {% endif %}">
-            
-            <strong>{{ route.origin }} → {{ route.destination }}</strong><br><br>
-            {% if route.source == 'faa' %}
-                <span class="faa-badge">FAA Preferred Route</span><br>
-            {% endif %}
-            {% if route.isEvent %}
-                <span class="event-badge">Event Route</span><br>
-            {% endif %}
-            {% if route.isActive and route.hasFlows %}
-                <span class="active-route">Route active for RW flow</span><br>
-            {% endif %}
+        <div class="route-card {% if route.isActive and route.hasFlows %}
+                    active-route-card
+                {% elif not route.isActive and route.hasFlows and route.source == 'faa' %}
+                    inactive-faa-card
+                {% elif route.isEvent %}
+                    event-route-card
+                {% elif route.source == 'faa' %}
+                    faa-route-card
+                {% elif not route.isActive and route.hasFlows %}
+                    inactive-route
+                {% endif %}">
 
+            <strong>{{ route.origin }} → {{ route.destination }}</strong>
 
-            <br>
-            <strong>Route:</strong> {{ route.route }}
-            <button class="copy-btn" 
-                    data-clipboard-text="{{ route.route }}"
-                    style="margin-left: 10px;">
-                <i class="fas fa-copy"></i> Copy Route
-            </button>
-            <button class="skyvector" style="width: 250px;"
-                    data-origin="{{ route.origin }}"
-                    data-route="{{ route.route }}"
-                    data-destination="{{ route.destination }}">
-                View on SkyVector
-            </button>
-            
-            <br>
+            <div class="badge-container">
+                {% if route.source == 'faa' %}
+                    <span class="faa-badge">FAA Preferred Route</span>
+                {% endif %}
+                {% if route.isEvent %}
+                    <span class="event-badge">Event Route</span>
+                {% endif %}
+                {% if route.isActive and route.hasFlows %}
+                    <span class="active-route">Route active for RW flow</span>
+                {% endif %}
+            </div>
 
+            <strong>Route:</strong> {{ route.route }}<br>
             <strong>Altitude:</strong> {{ route.altitude or 'No altitude restrictions' }}<br>
-            <strong>Notes:</strong> <span>{{ route.notes | safe or 'N/A' }}</span>
-        </li>
+            <strong>Notes:</strong> <span>{{ route.notes | safe or 'N/A' }}</span><br>
+
+            <div class="button-group">
+                <button class="copy-btn"
+                        data-clipboard-text="{{ route.route }}">
+                    Copy Route
+                </button>
+
+                <button class="skyvector"
+                        data-origin="{{ route.origin }}"
+                        data-route="{{ route.route }}"
+                        data-destination="{{ route.destination }}">
+                    View on SkyVector
+                </button>
+            </div>
+        </div>
     {% endfor %}
-    </ul>
+    </div>
 {% elif searched %}
-    <p>No matching routes found.</p>
+    <p class="no-results">No matching routes found.</p>
 {% endif %}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
@@ -75,33 +76,24 @@
         clipboard.on('success', function(e) {
             e.trigger.innerText = 'Copied!';
             setTimeout(function() {
-                e.trigger.innerText = 'Copy Route';
+                e.trigger.innerHTML = '<i class="fas fa-copy"></i> Copy Route';
             }, 2000);
         });
 
         clipboard.on('error', function(e) {
             console.error('Copy failed', e);
         });
+
+        document.querySelectorAll('.skyvector').forEach(button => {
+            button.addEventListener('click', () => {
+                const origin = button.getAttribute('data-origin');
+                const route = button.getAttribute('data-route').trim().replace(/\s+/g, '%20');
+                const destination = button.getAttribute('data-destination');
+                const url = `https://skyvector.com/?fpl=${origin}%20${route}%20${destination}`;
+                window.open(url, '_blank');
+            });
+        });
     });
-
-
-    function openSkyVector(origin, route, destination) {
-        const formattedRoute = route.trim().replace(/\s+/g, '%20');
-        const url = `https://skyvector.com/?fpl=${origin}%20${formattedRoute}%20${destination}`;
-        window.open(url, '_blank');
-    }
-
-    document.querySelectorAll('.skyvector').forEach(button => {
-    button.addEventListener('click', () => {
-        const origin = button.getAttribute('data-origin');
-        const route = button.getAttribute('data-route').trim().replace(/\s+/g, '%20');
-        const destination = button.getAttribute('data-destination');
-        const url = `https://skyvector.com/?fpl=${origin}%20${route}%20${destination}`;
-        window.open(url, '_blank');
-    });
-});
-
-
 </script>
 
 {% endblock %}

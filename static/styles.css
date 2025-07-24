@@ -153,15 +153,9 @@ ul {
 }
 
 li {
-    margin-bottom: 15px;
-    margin-left: 20px;
-    margin-right: 20px;
-    background-color: #0f172a; /* Dark blue background for each list item */
-    padding: 15px;
-    border-radius: 8px;
-    border: 2px solid #164285; /* Adds a border with a specific color (blue) */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    color: #ffffff; /* White text color for list items */
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
 }
 
 /* Styling for the "No results" message */
@@ -192,39 +186,7 @@ form {
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.copy-btn {
-    background-color: transparent;
-    border: none;
-    color: #007bff;
-    cursor: pointer;
-    font-size: 18px;
-    padding: 5px;
-    display: inline-flex;
-    align-items: center;
-}
 
-.skyvector {
-    background-color: transparent;
-    border: none;
-    color: cyan;
-    cursor: pointer;
-    font-size: 18px;
-    padding: 5px;
-    display: inline-flex;
-    align-items: center;
-}
-
-.skyvector:hover {
-    text-decoration: underline;
-}
-
-.copy-btn i {
-    margin-right: 5px;
-}
-
-.copy-btn:hover {
-    text-decoration: underline;
-}
 
 .inactive-route {
     opacity: 0.5; /* Dim the route */
@@ -484,7 +446,7 @@ background-color: #3d3d3d;
   
 
   .container {
-      max-width: 900px;
+      max-width: 1200px;
       margin: 40px auto;
       padding: 20px;
       background-color: #0f172a; /* Ensure background matches the body */
@@ -544,83 +506,90 @@ background-color: #3d3d3d;
     font-size: 24px;
   }
 
-  .faa-route-card {
+  .route-card {
+    width: calc(50% - 10px); /* two per row, with margin */
+    box-sizing: border-box;
     background-color: #0f172a;
-    border: 2px solid #708090; 
+    border: 2px solid #164285;
     border-radius: 8px;
     padding: 15px;
-    margin: 20px;
     color: #ffffff;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
+  .faa-route-card {
+    border: 2px solid #708090; 
+}
+
+.badge-container {
+    min-height: 2.5em; /* Ensures consistent height even if no badges */
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0.5em 0;
+}
+
+/* Individual badge styles */
 .faa-badge {
     background-color: #708090;
-    color: rgb(255, 255, 255);
-    padding: 3px 10px;
-    border-radius: 3px;
-    font-size: 0.9em;
+    color: #ffffff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.875rem;
     font-weight: bold;
     display: inline-block;
-    margin-bottom: 10px;
+    white-space: nowrap;
 }
 
 .active-route {
     background-color: green;
     color: white;
-    padding: 3px 10px; 
-    border-radius: 3px;
-    font-size: 0.9em;
-    font-weight: bold; 
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: bold;
     display: inline-block;
-}
-
-.active-route-card {
-    background-color: #0f172a;
-    border: 2px solid green;
-    border-radius: 8px;
-    padding: 15px;
-    margin: 20px;
-    color: #ffffff; 
-}
-
-.inactive-faa-card {
-    opacity: 0.5; /* Dim the route */
-    color: #aaa;  /* Grey text */
-    background-color: #0f172a;
-    border: 2px solid #708090; 
-    border-radius: 8px;
-    padding: 15px;
-    margin: 20px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-               
-  .event-route-card {
-    background-color: #0f172a;
-    border: 2px solid #ff5304; 
-    border-radius: 8px;
-    padding: 15px;
-    margin: 20px;
-    color: #ffffff;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
 }
 
 .event-badge {
     background-color: #ff5304;
     color: white;
-    padding: 3px 10px;
-    border-radius: 3px;
-    font-size: 0.9em;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.875rem;
     font-weight: bold;
     display: inline-block;
+    white-space: nowrap;
 }
+
+.active-route-card {
+    border: 2px solid green;
+}
+
+.faa-route-card {
+    border: 2px solid #708090;
+}
+
+.event-route-card {
+    border: 2px solid #ff5304;
+}
+
+.inactive-faa-card {
+    border: 2px solid #708090;
+    opacity: 0.5;
+    color: #aaa;
+}
+
+
 
   .airport-card {
     background: #111;
     color: white;
     padding: 20px;
     border-radius: 10px;
-    width: 300px;
+    width: 225px;
     box-shadow: 0 0 10px #444;
     font-family: monospace;
   }
@@ -651,3 +620,64 @@ background-color: #3d3d3d;
     white-space: pre-wrap;
     margin-top: 4px;
   }
+
+
+  .route-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding-left: 0;
+    list-style-type: none;
+    justify-content: flex-start;
+}
+
+
+
+  /* Responsive: 1 per row on small screens */
+  @media (max-width: 768px) {
+      .route-card {
+          flex: 1 1 100%;
+      }
+  }
+
+
+  .button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    width: 100%
+}
+
+.copy-btn,
+.skyvector {
+    flex: 1; /* makes both buttons take equal available width */
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Maintain distinct colors */
+.copy-btn {
+    background-color: #1e293b;
+    border: 1px solid #3b82f6;
+    color: #3b82f6;
+}
+
+.copy-btn:hover {
+    background-color: #3b82f6;
+    color: #1e293b;
+}
+
+.skyvector {
+    background-color: #0f172a;
+    border: 1px solid #06b6d4;
+    color: #06b6d4;
+}
+
+.skyvector:hover {
+    background-color: #06b6d4;
+    color: #0f172a;
+}
