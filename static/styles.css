@@ -614,3 +614,40 @@ background-color: #3d3d3d;
     font-weight: bold;
     display: inline-block;
 }
+
+  .airport-card {
+    background: #111;
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    width: 300px;
+    box-shadow: 0 0 10px #444;
+    font-family: monospace;
+  }
+
+  .airport-title {
+    color: cyan;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  .toggle-btn {
+    background: none;
+    border: none;
+    color: #00bfff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-top: 4px;
+    padding: 0;
+  }
+
+  .metar-section, .atis-section {
+    margin-bottom: 12px;
+  }
+
+  .metar-full, .atis-full {
+    white-space: pre-wrap;
+    margin-top: 4px;
+  }

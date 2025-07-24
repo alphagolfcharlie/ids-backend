@@ -1,5 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Home Page{% endblock %}
+
 {% block content %}
-<h1>vZOB IDS</h1>
+<h2>Airport Status Dashboard</h2><br>
+<div id="airportStatusContainer" style="display: flex; gap: 20px; flex-wrap: wrap;"></div>
+
+<script>
+  async function loadAirportData() {
+    const res = await fetch('/api/airport_info');
+    const data = await res.json();
+    const container = document.getElementById('airportStatusContainer');
+    container.innerHTML = '';
+
+    Object.entries(data).forEach(([icao, info]) => {
+      const previewATIS = info.atis.length > 120 ? info.atis.substring(0, 120) + '...' : info.atis;
+      const previewMETAR = info.metar.length > 70 ? info.metar.substring(0, 70) + '...' : info.metar;
+
+      const card = document.createElement('div');
+      card.className = 'airport-card';
+      card.innerHTML = `
+        <h3 class="airport-title">${icao}</h3>
+
+        <p><strong>METAR:</strong></p>
+        <div class="metar-section">
+          <div class="metar-preview" id="metar-preview-${icao}">${previewMETAR}</div>
+          <div class="metar-full hidden" id="metar-full-${icao}">${info.metar}</div>
+          ${info.metar.length > 70 ? `<button onclick="toggleSection('${icao}', 'metar')" class="toggle-btn">View More</button>` : ''}
+        </div>
+
+        <p><strong>ATIS:</strong></p>
+        <div class="atis-section">
+          <div class="atis-preview" id="atis-preview-${icao}">${previewATIS}</div>
+          <div class="atis-full hidden" id="atis-full-${icao}">${info.atis.replace(/\n/g, '<br>')}</div>
+          ${info.atis.length > 120 ? `<button onclick="toggleSection('${icao}', 'atis')" class="toggle-btn">View More</button>` : ''}
+        </div>
+
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function toggleSection(id, type) {
+    const preview = document.getElementById(`${type}-preview-${id}`);
+    const full = document.getElementById(`${type}-full-${id}`);
+    const button = full.nextElementSibling || preview.nextElementSibling;
+
+    if (full.classList.contains('hidden')) {
+      preview.classList.add('hidden');
+      full.classList.remove('hidden');
+      button.textContent = "View Less";
+    } else {
+      preview.classList.remove('hidden');
+      full.classList.add('hidden');
+      button.textContent = "View More";
+    }
+  }
+
+  loadAirportData();
+  setInterval(loadAirportData, 180000); // auto-refresh every 3 minutes
+</script>
 {% endblock %}

@@ -33,7 +33,19 @@ RUNWAY_FLOW_MAP = {
     "DFW": {
         "SOUTH": ["18","17"],
         "NORTH": ["36","35"]
-    }
+    },
+    "BUF": {
+        "WEST": ["23"],
+        "EAST": ["5"]
+    },    
+    "CLE": {
+        "SOUTH": ["24"],
+        "NORTH": ["6"]
+    },
+    "PIT": {
+        "WEST": ["28","32"],
+        "EAST": ["10","14"]
+    },
 }
 
 
@@ -78,6 +90,52 @@ def get_flow(airport_code):
     except Exception as e:
         print(f"Flow detection error for {airport_code}: {e}")
         return None
+
+def get_metar(icao):
+    url = f"https://aviationweather.gov/api/data/metar?ids={icao}&format=raw&hours=1"
+
+    try:
+        response = requests.get(url, timeout=5)
+
+        # Ensure the response is valid
+        if response.status_code != 200:
+            return f"Error: API returned status {response.status_code}"
+
+        text = response.text.strip()
+        if not text:
+            return "No METAR available"
+
+        return text
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def get_atis(station):
+    try:
+        response = requests.get(f"https://datis.clowd.io/api/K{station}", timeout=3)
+        if response.status_code != 200:
+            return None
+        datis = response.json()
+        if datis[0]["type"] == "combined":
+            return datis[0]["datis"]
+        elif len(datis) > 1:
+            return f"Departure: {datis[1]['datis']}\nArrival: {datis[0]['datis']}"
+        return datis[0]["datis"]
+    except Exception as e:
+        return f"ATIS fetch failed: {e}"
+
+@app.route("/api/airport_info")
+def airport_info():
+    airports = ["KDTW", "KCLE", "KPIT", "KBUF"]
+    data = {}
+    for airport in airports:
+        code = airport.replace("K", "")
+        data[airport] = {
+            "metar": get_metar(airport),
+            "atis": get_atis(code),
+            "flow": "Normal",  # Placeholder for your custom flow logic
+        }
+    return jsonify(data)
 
 @app.route("/")
 def home():
