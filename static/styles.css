@@ -687,3 +687,48 @@ background-color: #3d3d3d;
   box-shadow: none;
   transform: translateY(2px);
 }
+
+
+.route-list {
+  width: 80%;
+  margin: 20px auto;
+  color: white;
+  text-align: left;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  border-radius: 8px;
+  font-family: sans-serif;
+}
+
+.route-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.route-list-item span {
+  flex: 1;
+}
+
+.route-list-item button {
+  margin-left: 10px;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.route-list-item input[type="color"] {
+  margin-left: 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  height: 30px;
+  width: 30px;
+  padding: 0;
+}

@@ -56,7 +56,9 @@ db = client["ids"]
 routes_collection = db["routes"]
 crossings_collection = db["crossings"]
 faa_routes_collection = db["faa_prefroutes"]
-
+fixes_collection = db["fixes"]
+navaids_collection = db["navaids"]
+airway_collection = db["airways"]
 
 
 def get_flow(airport_code):
@@ -179,6 +181,65 @@ def api_routes():
 
     return jsonify(routes)
 
+
+@app.route('/api/fix')
+def get_fix():
+    fixes_param = request.args.get('fixes')
+    single_fix = request.args.get('fix')
+
+    # Support both single and multiple
+    fix_list = []
+    if fixes_param:
+        fix_list = [f.strip().upper() for f in fixes_param.split(',') if f.strip()]
+    elif single_fix:
+        fix_list = [single_fix.strip().upper()]
+    else:
+        return jsonify({'error': 'Missing fix or fixes parameter'}), 400
+
+    results = {}
+
+    for fix in fix_list:
+        fix_doc = fixes_collection.find_one({'FIX_ID': fix})
+        if fix_doc and fix_doc.get('LAT_DECIMAL') is not None and fix_doc.get('LONG_DECIMAL') is not None:
+            results[fix] = {
+                'lat': fix_doc['LAT_DECIMAL'],
+                'lon': fix_doc['LONG_DECIMAL']
+            }
+            continue
+
+        nav_doc = navaids_collection.find_one({'NAV_ID': fix})
+        if nav_doc and nav_doc.get('LAT_DECIMAL') is not None and nav_doc.get('LONG_DECIMAL') is not None:
+            results[fix] = {
+                'lat': nav_doc['LAT_DECIMAL'],
+                'lon': nav_doc['LONG_DECIMAL']
+            }
+
+    return jsonify(results)
+
+# In your Flask app
+@app.route('/api/airway')
+def expand_airway():
+    airway_id = request.args.get('id', '').upper()
+    start = request.args.get('from', '').upper()
+    end = request.args.get('to', '').upper()
+
+    airway_doc = airway_collection.find_one({'AWY_ID': airway_id})
+    if not airway_doc:
+        return jsonify({'error': f'Airway {airway_id} not found'}), 404
+
+    fixes = airway_doc['AIRWAY_STRING'].split()
+    try:
+        i = fixes.index(start)
+        j = fixes.index(end)
+    except ValueError:
+        return jsonify({'error': 'Fix not part of airway'}), 400
+
+    if i <= j:
+        segment = fixes[i:j+1]
+    else:
+        segment = list(reversed(fixes[j:i+1]))
+
+    return jsonify({'segment': segment})
 
 def searchroute(origin, destination):
     query = {}
