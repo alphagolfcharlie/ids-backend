@@ -13,7 +13,12 @@
   <!-- Right column: Map and Crossings -->
   <div style="flex: 2 1 75%; position: relative;">
     <!-- Map -->
-    <div id="map" style="height: 700px; border-radius: 10px;"></div>
+    <div style="margin-bottom: 20px;">
+      <button id="toggleMapBtn" style="margin-bottom: 10px;">Hide Map</button>
+      <div id="mapContainer" style="transition: max-height 0.4s ease, opacity 0.3s ease;">
+        <div id="map" style="height: 700px; border-radius: 10px;"></div>
+      </div>
+    </div>
 
     <!-- Crossings Form and Results -->
     <hr style="margin-top: 30px; margin-bottom: 20px;">
@@ -21,7 +26,7 @@
     <div style="display: flex; gap: 20px;">
       <!-- Left 1/3: Crossing Form and Results -->
       <div style="flex: 1;">
-        <h2>Crossing Restrictions</h2>
+        <h2 style="text-align: center;">Crossing Restrictions</h2>
 
         <form id="crossingForm" style="margin-bottom: 20px;">
           <label for="destination">Destination Airport:</label><br>
@@ -35,16 +40,25 @@
       <!-- Right 2/3: Placeholder content -->
       <div style="flex: 2">
         <!-- Placeholder content -->
-         <h2>Route Lookup</h2>
-         <form id="routeForm" style="margin-bottom: 20px";>
-            <label for="Departure">Departure Airport:</label><br>
-            <input type="text" id="departure" name="departure" placeholder="e.g. BUF"><br><br>
-            <label for="Arrival">Arrival Airport:</label><br>
-            <input type="text" id="arrival" name="arrival" placeholder="e.g. DTW"><br><br>
-            <input type="submit" value="Search">
-         </form>
-
-         <div id="routeResults"></div>
+        <h2 style="text-align: center;">Route Lookup</h2>
+        <form id="routeForm" style="margin-bottom: 20px;">
+          <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <div style="flex: 1;">
+              <label for="departure">Departure Airport:</label><br>
+              <input type="text" id="departure" name="departure" placeholder="e.g. BUF" style="width: 100%;">
+            </div>
+        
+            <div style="flex: 1;">
+              <label for="arrival">Arrival Airport:</label><br>
+              <input type="text" id="arrival" name="arrival" placeholder="e.g. DTW" style="width: 100%;">
+            </div>
+          </div>
+        
+          <br>
+          <input type="submit" value="Search">
+        </form>
+        
+        <div id="routeResults"></div>
       </div>
     </div>
 
@@ -85,6 +99,25 @@
       container.appendChild(card);
     });
   }
+
+  const toggleBtn = document.getElementById('toggleMapBtn');
+  const mapContainer = document.getElementById('mapContainer');
+  const mapDiv = document.getElementById('map');
+  let mapVisible = true;
+
+  toggleBtn.addEventListener('click', () => {
+    if (mapVisible) {
+      mapContainer.style.display = 'none';
+      toggleBtn.textContent = 'Show Map';
+    } else {
+      mapContainer.style.display = 'block';
+      toggleBtn.textContent = 'Hide Map';
+      setTimeout(() => {
+        map.invalidateSize(); // Recalculate dimensions when shown again
+      }, 200);
+    }
+    mapVisible = !mapVisible;
+  });
 
   async function loadAirportData() {
     const now = Date.now();
@@ -325,43 +358,102 @@
 <script>
   document.getElementById('routeForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-
+  
     const departure = document.getElementById('departure').value.trim().toUpperCase();
     const arrival = document.getElementById('arrival').value.trim().toUpperCase();
     const resultsContainer = document.getElementById('routeResults');
+  
     resultsContainer.innerHTML = 'Searching...';
-
+  
     try {
       const res = await fetch(`/api/routes?origin=${departure}&destination=${arrival}`);
       const data = await res.json();
-
-      if (data.length == 0) {
-        resultsContainer.innerHTML = '<p>No matching LOA items found.</p>'
+  
+      if (!Array.isArray(data) || data.length === 0) {
+        resultsContainer.innerHTML = '<p class="no-results">No matching routes found.</p>';
         return;
       }
-    const list = document.createElement('ul');
+  
+      const grid = document.createElement('div');
+      grid.className = 'route-grid';
+  
+      data.forEach(route => {
+        const card = document.createElement('div');
+        let cardClass = 'route-card';
+  
+        // Apply card variety classes like in search.html
+        if (route.isActive && route.hasFlows) {
+          cardClass += ' active-route-card';
+        } else if (!route.isActive && route.hasFlows && route.source === 'faa') {
+          cardClass += ' inactive-faa-card';
+        } else if (route.isEvent) {
+          cardClass += ' event-route-card';
+        } else if (route.source === 'faa') {
+          cardClass += ' faa-route-card';
+        } else if (!route.isActive && route.hasFlows) {
+          cardClass += ' inactive-route';
+        }
+  
+        card.className = cardClass;
+  
+        card.innerHTML = `
+          <strong>${route.origin} → ${route.destination}</strong>
+  
+          <div class="badge-container">
+            ${route.source === 'faa' ? '<span class="faa-badge">FAA Preferred Route</span>' : ''}
+            ${route.isEvent ? '<span class="event-badge">Event Route</span>' : ''}
+            ${(route.isActive && route.hasFlows) ? '<span class="active-route">Route active for RW flow</span>' : ''}
+          </div>
+  
+          <strong>Route:</strong> ${route.route}<br>
+          <strong>Altitude:</strong> ${route.altitude || 'No altitude restrictions'}<br>
+          <strong>Notes:</strong> <span>${route.notes || 'N/A'}</span><br>
+  
+          <div class="button-group">
+            <button class="copy-btn" data-clipboard-text="${route.route}">
+              Copy Route
+            </button>
+  
+            <button class="skyvector" data-origin="${route.origin}"
+                    data-route="${route.route}"
+                    data-destination="${route.destination}">
+              View on SkyVector
+            </button>
+          </div>
+        `;
+  
+        grid.appendChild(card);
+      });
+  
+      resultsContainer.innerHTML = '';
+      resultsContainer.appendChild(grid);
+  
+      // Enable clipboard and skyvector again
 
-    data.forEach(route => {
-      const item = document.createElement('li')
-      item.className = 'card';
-      item.style= 'margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;';
-      item.innerHTML = `
-          <strong>${route.origin} → ${route.destination}</strong><br>
-          <span>Route:</span> ${route.route || 'N/A'}<br>
-          <span>Altitude:</span> ${route.altitude}<br>
-          <span>Notes:</span> ${route.notes || 'N/A'}<br>
-      `;
-      list.appendChild(item)        
-    });
-    
-    resultsContainer.innerHTML = ''
-    resultsContainer.appendChild(list);
-
-  } catch (error) {
-    resultsContainer.innerHTML = '<p>Error loading routes, please try again later.</p>';
-    console.error(error);
-  }
+      const clipboard = new ClipboardJS('.copy-btn');
+      clipboard.on('success', function(e) {
+        e.trigger.innerText = 'Copied!';
+        setTimeout(() => {
+          e.trigger.innerText = 'Copy Route';
+        }, 2000);
+      });
+  
+      document.querySelectorAll('.skyvector').forEach(button => {
+        button.addEventListener('click', () => {
+          const origin = button.getAttribute('data-origin');
+          const route = button.getAttribute('data-route').trim().replace(/\s+/g, '%20');
+          const destination = button.getAttribute('data-destination');
+          const url = `https://skyvector.com/?fpl=${origin}%20${route}%20${destination}`;
+          window.open(url, '_blank');
+        });
+      });
+  
+    } catch (error) {
+      resultsContainer.innerHTML = '<p>Error loading routes. Please try again later.</p>';
+      console.error(error);
+    }
   });
-</script>
+  </script>
+  
 
 {% endblock %}

@@ -7,9 +7,8 @@ body {
     padding: 0;
 }
 
+/* NAVBAR */
 
-
-/* Navbar styles */
 .navbar {
     background-color: #344767; /* Dark blue background */
     padding: 10px 0;
@@ -664,4 +663,27 @@ background-color: #3d3d3d;
     padding: 0;
     border: none;
   }
+}
+
+
+#toggleMapBtn {
+  background-color: #007bff;      /* Bootstrap blue */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  box-shadow: 0 3px 6px rgba(0, 123, 255, 0.4);
+}
+
+#toggleMapBtn:hover {
+  background-color: #0056b3;      /* Darker blue on hover */
+}
+
+#toggleMapBtn:active {
+  background-color: #003f7f;      /* Even darker when clicked */
+  box-shadow: none;
+  transform: translateY(2px);
 }
