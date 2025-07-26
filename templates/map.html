@@ -184,8 +184,10 @@ async function expandRouteWithAirways(fixes) {
   for (let i = 0; i < fixes.length; i++) {
     const current = fixes[i].toUpperCase();
 
-    // Check if this is likely an airway and is surrounded by fixes
-    if (/^[A-Z]\d+/.test(current) && i > 0 && i < fixes.length - 1) {
+    // Check if this is likely an airway
+    const isAirway = /^[A-Z]\d+/.test(current);
+
+    if (isAirway && i > 0 && i < fixes.length - 1) {
       const prev = fixes[i - 1].toUpperCase();
       const next = fixes[i + 1].toUpperCase();
 
@@ -193,24 +195,40 @@ async function expandRouteWithAirways(fixes) {
         const res = await fetch(`/api/airway?id=${current}&from=${prev}&to=${next}`);
         const data = await res.json();
         if (data.segment) {
-          // Don't include the airway name, just insert the expanded segment
           expanded.pop(); // remove prev
           expanded.push(...data.segment.slice(0, -1)); // avoid duplicate
         } else {
-          console.warn('Airway expansion failed:', data.error);
           expanded.push(current);
         }
       } catch (e) {
-        console.error('Airway API error', e);
         expanded.push(current);
       }
-    } else {
+    }
+
+    // 🆕 NEW: Standalone airway (e.g. "J70")
+    else if (isAirway && (i === 0 || i === fixes.length - 1)) {
+      try {
+        const res = await fetch(`/api/airway?id=${current}`);
+        const data = await res.json();
+        if (data.segment) {
+          expanded.push(...data.segment);
+        } else {
+          expanded.push(current);
+        }
+      } catch (e) {
+        expanded.push(current);
+      }
+    }
+
+    // Not an airway
+    else {
       expanded.push(current);
     }
   }
 
   return expanded;
 }
+
 
 
 const plottedRoutes = [];

@@ -216,30 +216,44 @@ def get_fix():
 
     return jsonify(results)
 
-# In your Flask app
 @app.route('/api/airway')
 def expand_airway():
     airway_id = request.args.get('id', '').upper()
     start = request.args.get('from', '').upper()
     end = request.args.get('to', '').upper()
 
+    if not airway_id:
+        return jsonify({'error': 'Missing airway ID'}), 400
+
     airway_doc = airway_collection.find_one({'AWY_ID': airway_id})
     if not airway_doc:
         return jsonify({'error': f'Airway {airway_id} not found'}), 404
 
     fixes = airway_doc['AIRWAY_STRING'].split()
-    try:
-        i = fixes.index(start)
-        j = fixes.index(end)
-    except ValueError:
-        return jsonify({'error': 'Fix not part of airway'}), 400
 
-    if i <= j:
-        segment = fixes[i:j+1]
+    # If both 'from' and 'to' are provided, return only that segment
+    if start and end:
+        try:
+            i = fixes.index(start)
+            j = fixes.index(end)
+        except ValueError:
+            return jsonify({'error': f'Either {start} or {end} not part of airway {airway_id}'}), 400
+
+        if i <= j:
+            segment = fixes[i:j+1]
+        else:
+            segment = list(reversed(fixes[j:i+1]))
+
+        return jsonify({'segment': segment})
+
+    # If only one of start/end is provided → invalid
+    elif start or end:
+        return jsonify({'error': 'Both from and to must be provided to extract a segment'}), 400
+
+    # If neither is provided → return full airway
     else:
-        segment = list(reversed(fixes[j:i+1]))
+        return jsonify({'segment': fixes})
 
-    return jsonify({'segment': segment})
 
 def searchroute(origin, destination):
     query = {}
