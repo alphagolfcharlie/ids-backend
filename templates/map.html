@@ -177,35 +177,91 @@ function loadSector(url, options = {}) {
 </script>
 <script>
 
-async function expandRouteWithAirways(fixes) {
+async function expandProcedure(fixes) {
   const expanded = [];
 
   for (let i = 0; i < fixes.length; i++) {
     const current = fixes[i].toUpperCase();
 
-    // Check if this is likely an airway
-    const isAirway = /^[A-Z]\d+/.test(current);
+    const isAirway = /^[A-Z]{1,3}\d{1,4}$/i.test(current);
+    const isSTAR = /^[A-Z0-9]+\.[A-Z0-9]+$/.test(current);
+    const isSID = /^[A-Z0-9]+\.[A-Z0-9]+$/.test(current) && i === 0; // SIDs only allowed first
 
-    if (isAirway && i > 0 && i < fixes.length - 1) {
-      const prev = fixes[i - 1].toUpperCase();
-      const next = fixes[i + 1].toUpperCase();
+    // ➤ Handle SID
+    if (isSID) {
+      const [transitionFix] = current.split('.');
+      expanded.push(transitionFix);
+
+      try {
+        const res = await fetch(`/api/sid?code=${current}`);
+        const data = await res.json();
+
+        if (data.waypoints && data.waypoints.length > 0) {
+          expanded.push(...data.waypoints);
+        } else {
+          expanded.push(current); // fallback
+        }
+      } catch (e) {
+        expanded.push(current);
+      }
+
+      continue; // SID is fully handled
+    }
+
+    // ➤ Handle STAR
+    if (isSTAR) {
+      const [transitionFix] = current.split('.');
+      expanded.push(transitionFix);
+
+      try {
+        const res = await fetch(`/api/star?code=${current}`);
+        const data = await res.json();
+
+        if (data.waypoints && data.waypoints.length > 0) {
+          expanded.push(...data.waypoints);
+        } else {
+          expanded.push(current); // fallback if STAR fails
+        }
+      } catch (e) {
+        expanded.push(current);
+      }
+
+      continue;
+    }
+
+    // ➤ Handle airway
+    else if (
+      isAirway &&
+      i > 0 && i < fixes.length - 1
+    ) {
+      const prev = expanded[expanded.length - 1];
+      const nextFix = fixes[i + 1];
+
+      const next = /^[A-Z0-9]+\.[A-Z0-9]+$/.test(nextFix)
+        ? nextFix.split('.')[0]
+        : nextFix;
 
       try {
         const res = await fetch(`/api/airway?id=${current}&from=${prev}&to=${next}`);
         const data = await res.json();
+
         if (data.segment) {
           expanded.pop(); // remove prev
           expanded.push(...data.segment.slice(0, -1)); // avoid duplicate
+          expanded.push(next); // Add 'to' fix
         } else {
           expanded.push(current);
         }
       } catch (e) {
         expanded.push(current);
       }
+
+      i++; // skip next
+      continue;
     }
 
-    // 🆕 NEW: Standalone airway (e.g. "J70")
-    else if (isAirway && (i === 0 || i === fixes.length - 1)) {
+    // ➤ Standalone airway (start/end)
+    else if (isAirway) {
       try {
         const res = await fetch(`/api/airway?id=${current}`);
         const data = await res.json();
@@ -217,17 +273,16 @@ async function expandRouteWithAirways(fixes) {
       } catch (e) {
         expanded.push(current);
       }
+
+      continue;
     }
 
-    // Not an airway
-    else {
-      expanded.push(current);
-    }
+    // ➤ Otherwise treat as fix
+    expanded.push(current);
   }
 
   return expanded;
 }
-
 
 
 const plottedRoutes = [];
@@ -253,7 +308,8 @@ async function plotWaypoints() {
   const input = document.getElementById('waypointInput').value;
   const color = document.getElementById('routeColorPicker').value || '#00ffff';
   let fixes = input.trim().split(/\s+/).map(f => f.toUpperCase());
-  fixes = await expandRouteWithAirways(fixes);
+  fixes = await expandProcedure(fixes);
+  fixes = fixes.filter(fix => /^[A-Z]{3,5}$/.test(fix)); // Keep only valid fix names (3–5 uppercase letters)
   const routeStatus = document.getElementById('routeStatus');
   const missingFixes = [];
 

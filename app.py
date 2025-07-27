@@ -5,7 +5,7 @@ from functools import wraps
 from math import radians, cos, sin, asin, sqrt
 from dist import getCoords
 import urllib.parse
-from pymongo import MongoClient
+from pymongo import MongoClient, DESCENDING
 from bson.objectid import ObjectId
 import os
 from dotenv import load_dotenv
@@ -59,7 +59,8 @@ faa_routes_collection = db["faa_prefroutes"]
 fixes_collection = db["fixes"]
 navaids_collection = db["navaids"]
 airway_collection = db["airways"]
-
+star_rte_collection = db["star_rte"]
+dp_rte_collection = db["sid_rte"]
 
 def get_flow(airport_code):
     airport_code = airport_code.upper()
@@ -254,6 +255,106 @@ def expand_airway():
     else:
         return jsonify({'segment': fixes})
 
+@app.route('/api/star')
+def get_star_transition():
+    code = request.args.get('code', '').upper()
+    if not code:
+        return jsonify({'error': 'Missing STAR transition code'}), 400
+
+    # Shared ARPT_RWY_ASSOC filter
+    runway_filter = {
+        '$or': [
+            {'ARPT_RWY_ASSOC': {'$exists': False}},
+            {'ARPT_RWY_ASSOC': ''},
+            {'ARPT_RWY_ASSOC': {'$not': re.compile(r'/')}}
+        ]
+    }
+
+    # First try: search by TRANSITION_COMPUTER_CODE
+    rte_cursor = list(star_rte_collection.find({
+        'TRANSITION_COMPUTER_CODE': code,
+        **runway_filter
+    }).sort('POINT_SEQ', DESCENDING))
+
+    if not rte_cursor:
+        rte_cursor = list(star_rte_collection.find({
+            'STAR_COMPUTER_CODE': code,
+            'ROUTE_NAME': {'$not': re.compile(r'TRANSITION', re.IGNORECASE)},
+            **runway_filter
+        }).sort('POINT_SEQ', DESCENDING))
+
+    waypoints = []
+    for doc in rte_cursor:
+        point = doc.get('POINT')
+        if point and point not in waypoints:
+            waypoints.append(point)
+
+    if not waypoints:
+        # Fallback for STAR: return part after the dot if code contains dot
+        if '.' in code:
+            _, after_dot = code.split('.', 1)
+            return jsonify({
+                'transition': code,
+                'waypoints': [after_dot]
+            })
+        else:
+            return jsonify({'error': f'No valid waypoints found for {code}'}), 404
+
+    return jsonify({
+        'transition': code,
+        'waypoints': waypoints
+    })
+
+@app.route('/api/sid')
+def get_sid_transition():
+    code = request.args.get('code', '').upper()
+    if not code:
+        return jsonify({'error': 'Missing SID transition code'}), 400
+
+    # Shared ARPT_RWY_ASSOC filter
+    runway_filter = {
+        '$or': [
+            {'ARPT_RWY_ASSOC': {'$exists': False}},
+            {'ARPT_RWY_ASSOC': ''},
+            {'ARPT_RWY_ASSOC': {'$not': re.compile(r'/')}}
+        ]
+    }
+
+    # First try: search by TRANSITION_COMPUTER_CODE
+    rte_cursor = list(dp_rte_collection.find({
+        'TRANSITION_COMPUTER_CODE': code,
+        **runway_filter
+    }).sort('POINT_SEQ', DESCENDING))  # Note: ASCENDING for SIDs
+
+    # Fallback: search by SID_COMPUTER_CODE if nothing found
+    if not rte_cursor:
+        rte_cursor = list(dp_rte_collection.find({
+            'SID_COMPUTER_CODE': code,
+            **runway_filter
+        }).sort('POINT_SEQ', DESCENDING))
+
+    waypoints = []
+    for doc in rte_cursor:
+        point = doc.get('POINT')
+        if point and point not in waypoints:
+            waypoints.append(point)
+
+    if not waypoints:
+        # Fallback for SID: return part before the dot if code contains dot
+        if '.' in code:
+            before_dot = code.split('.', 1)[0]
+            before_dot = before_dot[:-1]
+            return jsonify({
+                'transition': code,
+                'waypoints': [before_dot]
+            })
+        else:
+            return jsonify({'error': f'No valid waypoints found for {code}'}), 404
+
+    return jsonify({
+        'transition': code,
+        'waypoints': waypoints
+    })
 
 def searchroute(origin, destination):
     query = {}
