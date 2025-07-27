@@ -8,12 +8,11 @@
 <div id="map" style="height: 700px; margin: 20px auto; width: 80%; border-radius: 10px;"></div>
 
 <!-- Route input controls -->
-<div style="text-align: center; margin-top: 20px;">
-  <input type="text" id="waypointInput" placeholder="Enter waypoints (e.g. JASEE PONCT JFUND)" style="width: 60%; padding: 8px;">
-  <input type="color" id="routeColorPicker" value="#00ffff" style="margin-left: 10px;">
-  <button onclick="plotWaypoints()" class="btn btn-submit">Plot Route</button>
+<div class="route-controls">
+  <input type="text" id="waypointInput" placeholder="Enter waypoints (e.g. JASEE PONCT JFUND)">
+  <input type="color" id="routeColorPicker" value="#00ffff">
+  <button onclick="plotWaypoints()" class="btn-submit">Plot Route</button>
 </div>
-
 <!-- Route loading status -->
 <div id="routeStatus" style="text-align: center; color: white; margin-top: 10px;"></div>
 

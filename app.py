@@ -556,8 +556,6 @@ def edit_crossing(crossing_id):
     return render_template("edit_crossing.html", crossing=row, action="Edit")
 
 
-
-
 @app.route('/route-to-skyvector') #api 
 def route_to_skyvector():
     if not is_api_request():
