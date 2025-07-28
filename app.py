@@ -20,7 +20,10 @@ load_dotenv()
 app = Flask(__name__)
 
 # Allow requests from localhost:5173 only (for development)
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}})
+CORS(app, resources={r"/api/*": {"origins": [
+    "http://localhost:5173",
+    "https://idsnew.vercel.app"
+]}})
 def is_api_request():
     return request.host.startswith("api.")
 
