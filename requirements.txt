@@ -3,3 +3,4 @@ flask_cors==6.0.1
 pymongo==4.13.2
 python-dotenv==1.1.1
 Requests==2.32.4
+gunicorn==23.0.0
