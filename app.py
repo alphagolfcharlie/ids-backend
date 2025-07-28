@@ -10,12 +10,17 @@ from bson.objectid import ObjectId
 import os
 from dotenv import load_dotenv
 from collections import OrderedDict
+from flask_cors import CORS
+
 
 load_dotenv()
 
 
 
 app = Flask(__name__)
+
+# Allow requests from localhost:5173 only (for development)
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173"]}})
 def is_api_request():
     return request.host.startswith("api.")
 
