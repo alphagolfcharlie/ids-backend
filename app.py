@@ -120,6 +120,7 @@ def get_metar(icao):
     except Exception as e:
         return f"Error: {str(e)}"
 
+
 def get_atis(station):
     try:
         response = requests.get(f"https://datis.clowd.io/api/K{station}", timeout=3)
@@ -564,10 +565,8 @@ def show_map():
         return "Not available on API subdomain", 404
     return render_template("map.html")
 
-@app.route('/aircraft')
+@app.route('/api/aircraft')
 def aircraft():
-    if is_api_request():
-        return "Not available on API subdomain", 404
     acarr = getCoords()
     return jsonify(acarr)
 
