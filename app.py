@@ -69,6 +69,8 @@ navaids_collection = db["navaids"]
 airway_collection = db["airways"]
 star_rte_collection = db["star_rte"]
 dp_rte_collection = db["sid_rte"]
+enroute_collection = db["enroute"]
+
 
 def get_flow(airport_code):
     airport_code = airport_code.upper()
@@ -610,6 +612,50 @@ def api_crossings():
         })
 
     return jsonify(crossings)
+
+
+@app.route('/api/enroute')
+def api_enroute():
+    field = request.args.get('field', '').upper()
+    area = request.args.get('area', '').strip()
+    qualifier = request.args.get('qualifier','').strip()
+
+    if not field:
+        return jsonify({"error": "field is required"}), 400
+
+    # MongoDB query
+    query = {
+        "Field": {"$regex": field, "$options": "i"}
+    }
+
+    if area:
+        query["Areas"] = {"$regex": area, "$options": "i"}
+
+ 
+    rows = enroute_collection.find(query)
+
+    results = []
+    seen = set()
+
+    for row in rows:
+        result_tuple = (
+            row.get('Field', ''),
+            row.get('Qualifier', ''),
+            row.get('Areas', ''),
+            row.get('Rule', '')
+        )
+
+        if result_tuple not in seen:
+            seen.add(result_tuple)
+            results.append({
+                'field': result_tuple[0],
+                'qualifier': result_tuple[1],
+                'areas': result_tuple[2],
+                'rule': result_tuple[3]
+            })
+
+    return jsonify(results)
+    
 
 @app.route('/admin/crossings')
 @requires_auth
