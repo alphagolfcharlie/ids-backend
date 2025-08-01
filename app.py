@@ -709,17 +709,32 @@ def edit_crossing(crossing_id):
     row = crossings_collection.find_one({"_id": ObjectId(crossing_id)})
     return render_template("edit_crossing.html", crossing=row, action="Edit")
 
-vnasurl = "https://live.env.vnas.vatsim.net/data-feed/controllers.json"
 
-@app.route("/api/controllers")
-def get_controllers():
+@app.route('/api/controllers')
+def get_center_controllers():
+    vnasurl = "https://live.env.vnas.vatsim.net/data-feed/controllers.json"
     try:
-        resp = requests.get(vnasurl)
-        resp.raise_for_status()
-        # Just return the exact JSON data from VNAs API
-        return Response(resp.content, status=resp.status_code, content_type=resp.headers['Content-Type'])
+        response = requests.get(vnasurl)
+        response.raise_for_status()
+        data = response.json()
+
+        # Filter: active, not observers, facilityType == "Center"
+        center_controllers = [
+            controller for controller in data["controllers"]
+            if controller.get("isActive") == True
+            and controller.get("isObserver") == False
+            and controller.get("vatsimData", {}).get("facilityType") == "Center"
+        ]
+
+        filtered_data = {
+            "updatedAt": data.get("updatedAt"),
+            "controllers": center_controllers
+        }
+
+        return jsonify(filtered_data)
+
     except requests.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Failed to fetch controller data", "details": str(e)}), 500
 
 
 @app.route('/route-to-skyvector') #api 
