@@ -717,7 +717,7 @@ def get_controllers():
         resp = requests.get(vnasurl)
         resp.raise_for_status()
         # Just return the exact JSON data from VNAs API
-        return jsonify(Response(resp.content, status=resp.status_code, content_type=resp.headers['Content-Type']))
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers['Content-Type'])
     except requests.RequestException as e:
         return jsonify({"error": str(e)}), 500
 
