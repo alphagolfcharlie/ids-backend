@@ -2,7 +2,7 @@ Field,Qualifier,Areas,Rule
 "CAK, CLE, CLE Sats",Arrivals,"1, 2, 4, 8",Aircraft must be assigned the BRWNZ arrival. Aircraft must not be cleared further direct than FRYYE. YQG sector may issue “descend via” clearance on contact.
 "CAK, CLE, CLE Sats",Prop Arrivals,"1, 2, 4, 5, 8",Props on the BRWNZ arrival must be descended and handed off to D21 so as not to enter YQG sector airspace.
 DTW,Arrivals,"1, 8","KDTW arrivals must enter Area 1 on the correct route for the known flow, descending at pilot’s discretion to 17,000 feet, or lowest available altitude. The LFD sector has control, on contact, for issuing the “descend via” clearance, speed adjustments, left turns up to 30°, and right turns up to direct HANBL."
-DTW Satellites,Arrivals,"1, 8","Area 8 must deliver KDTW satellites to Area 1 on the PETTE STAR, descending to 14,000. LFD sector has control, on contact, for speed adjustments, left turns up to 30°, and right turns up to direct PETTE."
+DTW Sats,Arrivals,"1, 8","Area 8 must deliver KDTW satellites to Area 1 on the PETTE STAR, descending to 14,000. LFD sector has control, on contact, for speed adjustments, left turns up to 30°, and right turns up to direct PETTE."
 "DTW, DTW Sats",Jet Departures,"1, 2, 3, 4, 5, 7, 8","The first ZOB sector to work a D21 jet departure must delete or amend, via ATC clearance, any “SID assigned” speed restriction."
 "DTW, DTW sats",Departures,1,All D21 departures routed over the CCOBB departure fix must be capped at or below FL220.
 FNT,Arrivals,"1, 2, 4, 8","Except for those aircraft that will transit D21, KFNT arrivals west of VWV must be routed via HAZIT VHICL CITYE and handed off to the LFD sector. KFNT arrivals east of VWV must be routed via MARGN KFNT."
@@ -18,7 +18,6 @@ DTW,Arrivals,"2, 7",KDTW arrivals must enter Area 2 on the correct route for the
 DTW sats,Arrivals,"2, 4, 7",Any satellite arrival on the FOREY STAR that will enter YQG sector must be routed via NACCA.FOREY STAR.
 "DTW, DTW sats",Departures,"2, 3, 7",Departures routed via JHW must remain on course until level at requested altitude.
 "DTW, DTW sats",Departures via GRIVY,"2, 4",Area 4 has control for right turns AOA FL220. Area 4 is responsible for any resulting coordination.
-"DTW, DTW sats",Departures via ESSBE,"2, 4, 5",Area 4 is responsible for pointouts to Area 5 on D21.
 "DTW, DTW sats",Departures via HHOWE,"2, 7",Area 2 must ensure that KDTW and KDTW satellites departures requesting AOA FL280 via the HHOWE SID are issued the LNCON transition.
 ERI,Arrivals,"2, 7","KERI arrivals are descended to 11,000 feet and handed off to DKK sector."
 EWR,Arrivals,"2, 4, 5, 7",KEWR arrivals must be routed via SLT FQM STAR. KEWR arrivals enter Area 7 routed via J584 SLT or Q29 DORET J584 SLT or EWC050 J584 SLT (PIT depts. only) with SLT being the furthest direct routing allowed. KEWR arrivals should not be cleared direct SLT if the new route will take the aircraft south of YNG VORTAC.
@@ -36,11 +35,10 @@ SYR,Arrivals,"2, 3",KSYR arrivals must enter Area 3 at or below FL350.
 TOL,Arrivals,"2, 3, 4, 7, 8","KTOL arrivals are routed via MOONN KTOL or DJB KTOL. If the MOONN route is used, KTOL arrivals must be handed off to MTC RAPCON. Alternately, CYYZ to KTOL flights may be routed via DJB KTOL (at or below FL220)."
 "YXU, YHM",Arrivals,"2, 4","CYXU and CYHM arrivals, entering Area 2 east of J43, must be AOB FL290."
 "YYZ, YKZ, YKF",Arrivals,"2, 4","CYYZ, CYKZ, and CYKF arrivals, entering Area 2 east of J43, must be AOB FL330."
-CLE Satellites,Arrivals,"3, 7",RNAV arrivals from NE of JHW must cross the common boundary AOB FL340 and be routed JOSSY THOME TRYBE STAR or CLERI direct destination.
+CLE Sats,Arrivals,"3, 7",RNAV arrivals from NE of JHW must cross the common boundary AOB FL340 and be routed JOSSY THOME TRYBE STAR or CLERI direct destination.
 BUF,Departures,"3, 7",Southbound departures into the BFD Sector are routed BUF VAIRS.
 BUF,Departures,"3, 7",Departures into the DKK sector are routed BUF JHW (for aircraft proceeding south and southwest) and BUF GGUCE (for aircraft proceeding west).
 CLE,Arrivals,"3, 7",KCLE RNAV arrivals from NE of JHW must cross the common boundary AOB FL340 and be routed via THOME TRYBE STAR.
-"DTW, DTW Satellites",Departures,"2, 3, 7",Departures routed via JHW must remain on course until level at requested altitude.
 MDW,Arrivals,"3, 4, 7",KMDW arrivals are routed DJB J60 GSH GSH STAR or DJB J60 ASHEN BAGEL PANGG STAR with NAPOL being the furthest “direct” routing allowed.
 PIT,Arrivals,"3, 7",KPIT arrivals from Area 3 enter Area 7 at or below FL340.
 ROC,Departures,"3, 7",KROC departures routed GEE BURST are climbed to FL270 or their requested lower altitude. KROC departures must not be issued direct PSB unless verbally coordinated with Area 7.
@@ -79,7 +77,6 @@ CLE,Arrivals,"5, 7","KCLE arrivals must enter Area 7 with a clearance to FL240, 
 CMH,Arrivals,"5, 6",KCMH arrivals enter Area 6 at or below FL340.
 CMH,Arrivals,"5, 7",KCMH arrivals enter Area 5 AOB FL320 if routed via WWSHR or FL300 if routed via direct APE.
 CVG,Arrivals,"5, 6",KCVG arrivals are routed via CINCE STAR or TIGRR STAR and enter Area 6 descending to FL380 or requested lower altitude.
-"DTW, DTW sats",Departures,"2, 4, 5",Area 4 is responsible for pointouts to area 5 on D21 ESSBE departures.
 EWR,Arrivals,"5, 7",Area 5 gives Area 7 control for speed adjustment and left turns up to 30° on KEWR arrival aircraft that are on or north of J146.
 LGA,Arrivals,"5, 7",Area 7 gives Area 5 control for speed adjustment and right turns up to 30° on KLGA arrival aircraft that are at or above FL240 and on or south of J584.
 OYM,Arrivals,"5, 7",Area 7 gives Area 5 control for turns and descent of KOYM arrivals upon completion of handoff and frequency change.

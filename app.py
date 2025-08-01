@@ -709,6 +709,18 @@ def edit_crossing(crossing_id):
     row = crossings_collection.find_one({"_id": ObjectId(crossing_id)})
     return render_template("edit_crossing.html", crossing=row, action="Edit")
 
+vnasurl = "https://live.env.vnas.vatsim.net/data-feed/controllers.json"
+
+@app.route("/api/controllers")
+def get_controllers():
+    try:
+        resp = requests.get(vnasurl)
+        resp.raise_for_status()
+        # Just return the exact JSON data from VNAs API
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers['Content-Type'])
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/route-to-skyvector') #api 
 def route_to_skyvector():
