@@ -712,6 +712,7 @@ def edit_crossing(crossing_id):
 
 @app.route('/api/controllers')
 def get_center_controllers():
+    #live network, not sweatbox
     vnasurl = "https://live.env.vnas.vatsim.net/data-feed/controllers.json"
     try:
         response = requests.get(vnasurl)
