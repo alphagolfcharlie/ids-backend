@@ -726,9 +726,18 @@ def get_center_controllers():
             and controller.get("vatsimData", {}).get("facilityType") == "Center"
         ]
 
+        tracon_controllers = [
+            controller for controller in data["controllers"]
+            if controller.get("isActive") == True
+            and controller.get("isObserver") == False
+            and controller.get("vatsimData", {}).get("facilityType") == "ApproachDeparture"
+            and controller.get("artccId") == "ZOB"
+        ]
+
         filtered_data = {
             "updatedAt": data.get("updatedAt"),
-            "controllers": center_controllers
+            "controllers": center_controllers, 
+            "tracon": tracon_controllers
         }
 
         return jsonify(filtered_data)
