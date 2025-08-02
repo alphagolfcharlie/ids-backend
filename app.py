@@ -364,8 +364,10 @@ def get_sid_transition():
 def searchroute(origin, destination):
     if len(origin) == 4 and origin.startswith('K'):
         origin = origin[1:]
-    elif len(destination) == 4 and destination.startswith('K'):
+    if len(destination) == 4 and destination.startswith('K'):
         destination = destination[1:]
+        
+    print(origin,destination)
     query = {}
     if origin and destination:
         query = {
