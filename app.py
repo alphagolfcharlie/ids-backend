@@ -24,8 +24,7 @@ CORS(app, resources={r"/api/*": {"origins": [
     "http://localhost:5173",
     "https://idsnew.vercel.app"
 ]}})
-def is_api_request():
-    return request.host.startswith("api.")
+
 
 RUNWAY_FLOW_MAP = {
     "DTW": {
@@ -152,26 +151,21 @@ def airport_info():
 
 @app.route("/")
 def home():
-    if is_api_request():
-        return jsonify({"message": "API"}), 200
+
     return render_template("index.html")
 
 @app.route("/SOPs")
 def SOPs():
-    if is_api_request():
-        return "Not available on API subdomain", 404
+
     return redirect("https://clevelandcenter.org/downloads")
 
 @app.route("/refs")
 def refs():
-    if is_api_request():
-        return "Not available on API subdomain", 404
+
     return redirect("https://refs.clevelandcenter.org")
 
 @app.route('/search', methods=['GET','POST'])
 def search():
-    if is_api_request():
-        return "Not available on API subdomain", 404
 
     origin = request.args.get('origin','').upper()
     destination = request.args.get('destination','').upper()
@@ -368,6 +362,10 @@ def get_sid_transition():
     })
 
 def searchroute(origin, destination):
+    if len(origin) == 4 and origin.startswith('K'):
+        origin = origin[1:]
+    elif len(destination) == 4 and destination.startswith('K'):
+        destination = destination[1:]
     query = {}
     if origin and destination:
         query = {
@@ -512,16 +510,14 @@ def requires_auth(f):
 @app.route('/admin/routes')
 @requires_auth
 def admin_routes():
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     rows = list(routes_collection.find())
     return render_template("admin_routes.html", routes=rows)
 
 @app.route('/admin/routes/add', methods=['GET', 'POST'])
 @requires_auth
 def add_route():
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     if request.method == 'POST':
         routes_collection.insert_one({
             "origin": request.form['origin'],
@@ -536,16 +532,14 @@ def add_route():
 @app.route('/admin/routes/delete/<route_id>')
 @requires_auth
 def delete_route(route_id):
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     routes_collection.delete_one({"_id": ObjectId(route_id)})
     return redirect(url_for('admin_routes'))
 
 @app.route('/admin/routes/edit/<route_id>', methods=['GET', 'POST'])
 @requires_auth
 def edit_route(route_id):
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     if request.method == 'POST':
         routes_collection.update_one(
             {"_id": ObjectId(route_id)},
@@ -563,8 +557,7 @@ def edit_route(route_id):
 
 @app.route('/map')
 def show_map():
-    if is_api_request():
-        return "Not available on API subdomain", 404
+
     return render_template("map.html")
 
 @app.route('/api/aircraft')
@@ -574,8 +567,7 @@ def aircraft():
 
 @app.route('/crossings')
 def crossings():
-    if is_api_request():
-        return "Not available on API subdomain", 404
+
 
     destination = request.args.get('destination','').upper()
     query = {"destination": destination} if destination else {}
@@ -660,16 +652,14 @@ def api_enroute():
 @app.route('/admin/crossings')
 @requires_auth
 def admin_crossings():
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     rows = list(crossings_collection.find())
     return render_template("admin_crossings.html", crossings=rows)
 
 @app.route('/admin/crossings/add', methods=['GET', 'POST'])
 @requires_auth
 def add_crossing():
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     if request.method == 'POST':
         crossings_collection.insert_one({
             "destination": request.form['destination'],
@@ -684,16 +674,14 @@ def add_crossing():
 @app.route('/admin/crossings/delete/<crossing_id>')
 @requires_auth
 def delete_crossing(crossing_id):
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
     return redirect(url_for('admin_crossings'))
 
 @app.route('/admin/crossings/edit/<crossing_id>', methods=['GET', 'POST'])
 @requires_auth
 def edit_crossing(crossing_id):
-    if is_api_request():
-        return "Admin unavailable via API domain", 403
+
     if request.method == 'POST':
         crossings_collection.update_one(
             {"_id": ObjectId(crossing_id)},
@@ -719,7 +707,7 @@ def get_center_controllers():
         response.raise_for_status()
         data = response.json()
 
-        # Filter: active, not observers, facilityType == "Center"
+        # Filter: active, not observers, facilityType == "CCan yCenter"
         center_controllers = [
             controller for controller in data["controllers"]
             if controller.get("isActive") == True
@@ -749,8 +737,7 @@ def get_center_controllers():
 
 @app.route('/route-to-skyvector') #api 
 def route_to_skyvector():
-    if not is_api_request():
-        return "This endpoint is only available on api.alphagolfcharlie.dev", 403
+
 
     callsign = request.args.get('callsign', '').upper().strip()
     if not callsign:
@@ -824,11 +811,7 @@ def check_trainer():
 
 @app.route('/checkroute')
 def checkroute():
-    #if not is_api_request():
-        #return jsonify({
-            #"status": "error",
-            #"message": "This endpoint is only available on api.alphagolfcharlie.dev"
-       # }), 403
+
 
     callsign = request.args.get('callsign', '').upper().strip()
     if not callsign:
