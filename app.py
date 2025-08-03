@@ -11,6 +11,10 @@ import os
 from dotenv import load_dotenv
 from collections import OrderedDict
 from flask_cors import CORS
+import jwt
+import datetime
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 
 load_dotenv()
@@ -56,6 +60,8 @@ RUNWAY_FLOW_MAP = {
 
 
 MONGO_URI = os.getenv("MONGO_URI")
+SECRET_KEY = os.getenv("SECRET_KEY")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 client = MongoClient(MONGO_URI)
 
@@ -70,6 +76,63 @@ star_rte_collection = db["star_rte"]
 dp_rte_collection = db["sid_rte"]
 enroute_collection = db["enroute"]
 
+
+
+def jwt_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"error": "Token is missing"}), 401
+        try:
+            # Remove "Bearer " prefix if present
+            token = token.split(" ")[1] if " " in token else token
+            jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+        return func(*args, **kwargs)
+    return wrapper
+
+@app.route('/api/google-login', methods=['POST'])
+def google_login():
+    data = request.json
+    token = data.get("token")
+
+    if not token:
+        return jsonify({"error": "Token is missing"}), 400
+
+    try:
+        # Verify the Google ID token
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+
+        # Extract user info from the token
+        email = idinfo.get("email")
+        name = idinfo.get("name")
+
+        # Check if the user is authorized (optional)
+        authorized_emails = ["aryagchan@gmail.com"]
+        if email not in authorized_emails:
+            return jsonify({"error": "Unauthorized user"}), 403
+
+        # Issue a custom JWT
+        custom_token = jwt.encode(
+            {
+                "email": email,
+                "name": name,
+                "role": "admin",  # You can add roles or permissions here
+                "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),  # Token expiration
+            },
+            SECRET_KEY,
+            algorithm="HS256",
+        )
+
+        return jsonify({"message": "Login successful", "token": custom_token}), 200
+
+    except ValueError as e:
+        # Invalid token
+        return jsonify({"error": "Invalid token"}), 401
 
 def get_flow(airport_code):
     airport_code = airport_code.upper()
