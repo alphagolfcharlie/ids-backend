@@ -62,6 +62,7 @@ RUNWAY_FLOW_MAP = {
 MONGO_URI = os.getenv("MONGO_URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+AUTHORIZED_EMAILS = os.getenv("AUTHORIZED_EMAILS", "").split(",")
 
 client = MongoClient(MONGO_URI)
 
@@ -114,8 +115,8 @@ def google_login():
         email = idinfo.get("email")
         name = idinfo.get("name")
 
-        # Check if the user is authorized (optional)
-        authorized_emails = ["aryagchan@gmail.com"]
+        # Check if the user is authorized
+        authorized_emails = os.getenv("AUTHORIZED_EMAILS", "").split(",")
         if email not in authorized_emails:
             return jsonify({"error": "Unauthorized user"}), 403
 
