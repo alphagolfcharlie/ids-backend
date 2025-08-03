@@ -14,7 +14,7 @@ from flask_cors import CORS
 import jwt
 import datetime
 from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
+from google.auth.transport.requests import Request 
 
 
 load_dotenv()
@@ -104,8 +104,11 @@ def google_login():
         return jsonify({"error": "Token is missing"}), 400
 
     try:
+        # Create a Request object for token verification
+        request_adapter = Request()
+
         # Verify the Google ID token
-        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+        idinfo = id_token.verify_oauth2_token(token, request_adapter, GOOGLE_CLIENT_ID)
 
         # Extract user info from the token
         email = idinfo.get("email")
@@ -132,7 +135,13 @@ def google_login():
 
     except ValueError as e:
         # Invalid token
+        print("Token verification failed:", e)
         return jsonify({"error": "Invalid token"}), 401
+
+    except Exception as e:
+        # Handle unexpected errors
+        print("Unexpected error:", e)
+        return jsonify({"error": "Internal server error"}), 500
 
 def get_flow(airport_code):
     airport_code = airport_code.upper()
@@ -663,6 +672,7 @@ def api_crossings():
     crossings = []
     for row in rows:
         crossings.append({
+            '_id': str(row.get('_id')),  # Convert ObjectId to string
             'destination': row.get('destination'),
             'fix': row.get('bdry_fix'),
             'restriction': row.get('restriction'),
