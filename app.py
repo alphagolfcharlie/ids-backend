@@ -720,6 +720,35 @@ def delete_crossing(crossing_id):
 
     return jsonify({"message": "Crossing deleted successfully"}), 200
 
+# POST endpoint to create a new crossing
+@app.route('/api/crossings', methods=['POST'])
+@jwt_required
+def create_crossing():
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Validate required fields
+    required_fields = ['destination', 'fix', 'restriction', 'notes', 'artcc']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    # Insert the new crossing into the database
+    new_crossing = {
+        "destination": data.get('destination'),
+        "bdry_fix": data.get('fix'),
+        "restriction": data.get('restriction'),
+        "notes": data.get('notes'),
+        "artcc": data.get('artcc')
+    }
+    result = crossings_collection.insert_one(new_crossing)
+
+    return jsonify({
+        "message": "Crossing created successfully",
+        "crossing_id": str(result.inserted_id)  # Return the ID of the newly created crossing
+    }), 201
+
 @app.route('/api/enroute')
 def api_enroute():
     field = request.args.get('field', '').upper()
