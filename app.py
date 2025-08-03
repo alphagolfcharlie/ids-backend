@@ -754,53 +754,7 @@ def api_enroute():
     return jsonify(results)
     
 
-@app.route('/admin/crossings')
-@requires_auth
-def admin_crossings():
 
-    rows = list(crossings_collection.find())
-    return render_template("admin_crossings.html", crossings=rows)
-
-@app.route('/admin/crossings/add', methods=['GET', 'POST'])
-@requires_auth
-def add_crossing():
-
-    if request.method == 'POST':
-        crossings_collection.insert_one({
-            "destination": request.form['destination'],
-            "bdry_fix": request.form['fix'],
-            "restriction": request.form['restriction'],
-            "notes": request.form['notes'],
-            "artcc": request.form['artcc']
-        })
-        return redirect(url_for('admin_crossings'))
-    return render_template("edit_crossing.html", action="Add")
-
-@app.route('/admin/crossings/delete/<crossing_id>')
-@requires_auth
-def delete_crossing(crossing_id):
-
-    crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
-    return redirect(url_for('admin_crossings'))
-
-@app.route('/admin/crossings/edit/<crossing_id>', methods=['GET', 'POST'])
-@requires_auth
-def edit_crossing(crossing_id):
-
-    if request.method == 'POST':
-        crossings_collection.update_one(
-            {"_id": ObjectId(crossing_id)},
-            {"$set": {
-                "destination": request.form['destination'],
-                "bdry_fix": request.form['fix'],
-                "restriction": request.form['restriction'],
-                "notes": request.form['notes'],
-                "artcc": request.form['artcc']
-            }}
-        )
-        return redirect(url_for('admin_crossings'))
-    row = crossings_collection.find_one({"_id": ObjectId(crossing_id)})
-    return render_template("edit_crossing.html", crossing=row, action="Edit")
 
 
 @app.route('/api/controllers')
