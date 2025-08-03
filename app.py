@@ -672,6 +672,42 @@ def api_crossings():
 
     return jsonify(crossings)
 
+# PUT endpoint to update a crossing
+@app.route('/api/crossings/<crossing_id>', methods=['PUT'])
+@jwt_required
+def update_crossing(crossing_id):
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Update the crossing in the database
+    result = crossings_collection.update_one(
+        {"_id": ObjectId(crossing_id)},
+        {"$set": {
+            "destination": data.get('destination'),
+            "bdry_fix": data.get('fix'),
+            "restriction": data.get('restriction'),
+            "notes": data.get('notes'),
+            "artcc": data.get('artcc')
+        }}
+    )
+
+    if result.matched_count == 0:
+        return jsonify({"error": "Crossing not found"}), 404
+
+    return jsonify({"message": "Crossing updated successfully"}), 200
+
+# DELETE endpoint to delete a crossing
+@app.route('/api/crossings/<crossing_id>', methods=['DELETE'])
+@jwt_required
+def delete_crossing(crossing_id):
+    # Delete the crossing from the database
+    result = crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
+
+    if result.deleted_count == 0:
+        return jsonify({"error": "Crossing not found"}), 404
+
+    return jsonify({"message": "Crossing deleted successfully"}), 200
 
 @app.route('/api/enroute')
 def api_enroute():
