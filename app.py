@@ -24,11 +24,13 @@ load_dotenv()
 app = Flask(__name__)
 
 # Allow requests from localhost:5173 only (for development)
-CORS(app, resources={r"/api/*": {"origins": [
-    "http://localhost:5173",
-    "https://idsnew.vercel.app"
-]}})
-
+CORS(app, resources={r"/api/*": {
+    "origins": [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://idsnew.vercel.app"
+    ]
+}})
 
 with open ("data/runway_flow.json", "r") as f:
     RUNWAY_FLOW_MAP = json.load(f)
@@ -52,7 +54,7 @@ star_rte_collection = db["star_rte"]
 dp_rte_collection = db["sid_rte"]
 enroute_collection = db["enroute"]
 
-
+#jwt required
 def jwt_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -70,6 +72,7 @@ def jwt_required(func):
         return func(*args, **kwargs)
     return wrapper
 
+#google login 
 @app.route('/api/google-login', methods=['POST'])
 def google_login():
     data = request.json
@@ -118,6 +121,7 @@ def google_login():
         print("Unexpected error:", e)
         return jsonify({"error": "Internal server error"}), 500
 
+#get flow
 def get_flow(airport_code):
     airport_code = airport_code.upper()
     if airport_code not in RUNWAY_FLOW_MAP:
@@ -148,7 +152,8 @@ def get_flow(airport_code):
     except Exception as e:
         print(f"Flow detection error for {airport_code}: {e}")
         return None
-
+    
+#get metar
 def get_metar(icao):
     url = f"https://aviationweather.gov/api/data/metar?ids={icao}&format=raw&hours=1"
 
@@ -168,7 +173,7 @@ def get_metar(icao):
     except Exception as e:
         return f"Error: {str(e)}"
 
-
+# get ATIS 
 def get_atis(station):
     try:
         response = requests.get(f"https://datis.clowd.io/api/K{station}", timeout=3)
@@ -183,6 +188,7 @@ def get_atis(station):
     except Exception as e:
         return f"ATIS fetch failed: {e}"
 
+# combine ATIS and METAR
 @app.route("/api/airport_info")
 def airport_info():
     airports = ["KDTW", "KCLE", "KPIT", "KBUF"]
@@ -223,6 +229,70 @@ def api_routes():
     routes = searchroute(origin, destination)
 
     return jsonify(routes)
+
+# PUT endpoint to update a route
+@app.route('/api/routes/<route_id>', methods=['PUT'])
+@jwt_required
+def update_route(route_id):
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Update the route in the database
+    result = routes_collection.update_one(
+        {"_id": ObjectId(route_id)},
+        {"$set": {
+            "origin": data.get('origin'),
+            "destination": data.get('destination'),
+            "route": data.get('route'),
+            "notes": data.get('notes'),
+        }}
+    )
+
+    if result.matched_count == 0:
+        return jsonify({"error": "Route not found"}), 404
+
+    return jsonify({"message": "Route updated successfully"}), 200
+
+# DELETE endpoint to delete a crossing
+@app.route('/api/routes/<route_id>', methods=['DELETE'])
+@jwt_required
+def delete_route(route_id):
+    # Delete the route from the database
+    result = routes_collection.delete_one({"_id": ObjectId(route_id)})
+
+    if result.deleted_count == 0:
+        return jsonify({"error": "Route not found"}), 404
+
+    return jsonify({"message": "Route deleted successfully"}), 200
+
+# POST endpoint to create a new crossing
+@app.route('/api/routes', methods=['POST'])
+@jwt_required
+def create_route():
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Validate required fields
+    required_fields = ['origin', 'destination', 'route', 'notes']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    # Insert the new crossing into the database
+    new_route = {
+        "origin": data.get('origin'),
+        "destination": data.get('destination'),
+        "route": data.get('route'),
+        "notes": data.get('notes'),
+    }
+    result = routes_collection.insert_one(new_route)
+
+    return jsonify({
+        "message": "Route created successfully",
+        "route_id": str(result.inserted_id)  # Return the ID of the newly created crossing
+    }), 201
 
 
 @app.route('/api/fix')
@@ -404,7 +474,7 @@ def searchroute(origin, destination):
     if len(destination) == 4 and destination.startswith('K'):
         destination = destination[1:]
 
-    print(origin,destination)
+    print(origin, destination)
     query = {}
     if origin and destination:
         query = {
@@ -424,31 +494,37 @@ def searchroute(origin, destination):
     elif destination:
         query = {"destination": destination}
 
-    # FAA query
-    faa_query = {}
-    if origin and destination:
-        faa_query = {
-            "$and": [
-                {"$or": [
+    # If both origin and destination are not provided, return only custom routes
+    if not origin and not destination:
+        custom_matches = list(routes_collection.find({}))
+        faa_matches = []  # Skip FAA routes
+    else:
+        # Step 1: Fetch all matches
+        custom_matches = list(routes_collection.find(query))
+
+        # FAA query
+        faa_query = {}
+        if origin and destination:
+            faa_query = {
+                "$and": [
+                    {"$or": [
+                        {"Orig": origin},
+                        {"Area": {"$regex": origin, "$options": "i"}}
+                    ]},
+                    {"Dest": destination}
+                ]
+            }
+        elif origin:
+            faa_query = {
+                "$or": [
                     {"Orig": origin},
                     {"Area": {"$regex": origin, "$options": "i"}}
-                ]},
-                {"Dest": destination}
-            ]
-        }
-    elif origin:
-        faa_query = {
-            "$or": [
-                {"Orig": origin},
-                {"Area": {"$regex": origin, "$options": "i"}}
-            ]
-        }
-    elif destination:
-        faa_query = {"Dest": destination}
+                ]
+            }
+        elif destination:
+            faa_query = {"Dest": destination}
 
-    # Step 1: Fetch all matches
-    custom_matches = list(routes_collection.find(query))
-    faa_matches = list(faa_routes_collection.find(faa_query))
+        faa_matches = list(faa_routes_collection.find(faa_query))
 
     # Step 2: Prepare deduplication dictionary
     routes_dict = OrderedDict()
@@ -485,36 +561,37 @@ def searchroute(origin, destination):
             'isEvent': eventRoute
         }
 
-    # Step 4: Overwrite duplicates with FAA routes
-    for row in faa_matches:
-        route_string = normalize(row.get("Route String", ""))
-        route_origin = origin.upper()
-        route_destination = destination.upper()
-        key = (route_origin, route_destination, route_string)
+    # Step 4: Overwrite duplicates with FAA routes (only if origin and destination are provided)
+    if origin or destination:
+        for row in faa_matches:
+            route_string = normalize(row.get("Route String", ""))
+            route_origin = origin.upper()
+            route_destination = destination.upper()
+            key = (route_origin, route_destination, route_string)
 
-        isActive = False
-        hasFlows = False
-        flow = ''
-        direction = row.get("Direction", "")
+            isActive = False
+            hasFlows = False
+            flow = ''
+            direction = row.get("Direction", "")
 
-        if direction and destination in RUNWAY_FLOW_MAP:
-            hasFlows = True
-            flow = get_flow(destination)
-            if flow and flow.upper() in direction.upper():
-                isActive = True
+            if direction and destination in RUNWAY_FLOW_MAP:
+                hasFlows = True
+                flow = get_flow(destination)
+                if flow and flow.upper() in direction.upper():
+                    isActive = True
 
-        routes_dict[key] = {
-            'origin': route_origin,
-            'destination': route_destination,
-            'route': route_string,
-            'altitude': '',
-            'notes': row.get("Area", ""),
-            'flow': flow,
-            'isActive': isActive,
-            'hasFlows': hasFlows,
-            'source': 'faa',
-            'isEvent': False
-        }
+            routes_dict[key] = {
+                'origin': route_origin,
+                'destination': route_destination,
+                'route': route_string,
+                'altitude': '',
+                'notes': row.get("Area", ""),
+                'flow': flow,
+                'isActive': isActive,
+                'hasFlows': hasFlows,
+                'source': 'faa',
+                'isEvent': False
+            }
 
     def sort_priority(route):
         if route['isEvent']:
@@ -527,7 +604,7 @@ def searchroute(origin, destination):
             return 3
 
     sorted_routes = sorted(routes_dict.values(), key=sort_priority)
-    return sorted_routes
+    return sorted_routes    
 
 def check_auth(username, password): 
     return username == 'admin' and password == 'password'
@@ -546,53 +623,6 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-@app.route('/admin/routes')
-@requires_auth
-def admin_routes():
-
-    rows = list(routes_collection.find())
-    return render_template("admin_routes.html", routes=rows)
-
-@app.route('/admin/routes/add', methods=['GET', 'POST'])
-@requires_auth
-def add_route():
-
-    if request.method == 'POST':
-        routes_collection.insert_one({
-            "origin": request.form['origin'],
-            "destination": request.form['destination'],
-            "route": request.form['route'],
-            "altitude": request.form['altitude'],
-            "notes": request.form['notes']
-        })
-        return redirect(url_for('admin_routes'))
-    return render_template("edit_route.html", action="Add")
-
-@app.route('/admin/routes/delete/<route_id>')
-@requires_auth
-def delete_route(route_id):
-
-    routes_collection.delete_one({"_id": ObjectId(route_id)})
-    return redirect(url_for('admin_routes'))
-
-@app.route('/admin/routes/edit/<route_id>', methods=['GET', 'POST'])
-@requires_auth
-def edit_route(route_id):
-
-    if request.method == 'POST':
-        routes_collection.update_one(
-            {"_id": ObjectId(route_id)},
-            {"$set": {
-                "origin": request.form['origin'],
-                "destination": request.form['destination'],
-                "route": request.form['route'],
-                "altitude": request.form['altitude'],
-                "notes": request.form['notes']
-            }}
-        )
-        return redirect(url_for('admin_routes'))
-    row = routes_collection.find_one({"_id": ObjectId(route_id)})
-    return render_template("edit_route.html", route=row, action="Edit")
 
 @app.route('/map')
 def show_map():
@@ -755,8 +785,11 @@ def api_enroute():
                 'rule': result_tuple[3]
             })
 
-    return jsonify(results)
-    
+
+    # Sort results alphabetically by the 'field' key
+    results = sorted(results, key=lambda x: x['field'])
+
+    return jsonify(results)    
 # DELETE endpoint to delete an enroute
 @app.route('/api/enroute/<enroute_id>', methods=['DELETE'])
 @jwt_required
@@ -776,15 +809,16 @@ def update_enroute(enroute_id):
     data = request.json
     if not data:
         return jsonify({"error": "No data provided"}), 400
-
+    print("Received update for ID:", enroute_id)
+    print("Payload:", data)
     # Update the enroute in the database
     result = enroute_collection.update_one(
         {"_id": ObjectId(enroute_id)},
         {"$set": {
-            "areas": data.get('areas'),
-            "field": data.get('field'),
-            "qualifier": data.get('qualifier'),
-            "rule": data.get('rule'),
+            "Areas": data.get('areas'),
+            "Field": data.get('field'),
+            "Qualifier": data.get('qualifier'),
+            "Rule": data.get('rule'),
         }}
     )
 
@@ -809,10 +843,10 @@ def create_enroute():
 
     # Insert the new enroute into the database
     new_enroute = {
-        "areas": data.get('areas'),
-        "field": data.get('field'),
-        "qualifier": data.get('qualifier'),
-        "rule": data.get('rule'),
+        "Areas": data.get('areas'),
+        "Field": data.get('field'),
+        "Qualifier": data.get('qualifier'),
+        "Rule": data.get('rule'),
     }
     result = enroute_collection.insert_one(new_enroute)
 
