@@ -725,12 +725,15 @@ def api_enroute():
         return jsonify({"error": "field is required"}), 400
 
     # MongoDB query
-    query = {
-        "Field": {"$regex": field, "$options": "i"}
-    }
+    query = {}
+
+    if field:
+        query["Field"] = {"$regex": field, "$options": "i"}
 
     if area:
         query["Areas"] = {"$regex": area, "$options": "i"}
+
+    rows = enroute_collection.find(query)
 
  
     rows = enroute_collection.find(query)
