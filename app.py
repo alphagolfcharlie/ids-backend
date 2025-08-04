@@ -744,11 +744,11 @@ def api_enroute():
             row.get('Qualifier', ''),
             row.get('Areas', ''),
             row.get('Rule', '')
-        )
-
+    )
         if result_tuple not in seen:
             seen.add(result_tuple)
             results.append({
+                '_id': str(row.get('_id')),  # Include Mongo ID!
                 'field': result_tuple[0],
                 'qualifier': result_tuple[1],
                 'areas': result_tuple[2],
