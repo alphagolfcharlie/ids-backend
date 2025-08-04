@@ -721,9 +721,6 @@ def api_enroute():
     area = request.args.get('area', '').strip()
     qualifier = request.args.get('qualifier','').strip()
 
-    if not field:
-        return jsonify({"error": "field is required"}), 400
-
     # MongoDB query
     query = {}
 
