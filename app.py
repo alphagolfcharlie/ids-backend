@@ -30,33 +30,8 @@ CORS(app, resources={r"/api/*": {"origins": [
 ]}})
 
 
-RUNWAY_FLOW_MAP = {
-    "DTW": {
-        "SOUTH": ["21", "22"],
-        "NORTH": ["3", "4"],
-        "WEST": ["27"]
-    },
-    "ATL": {
-        "WEST": ["26","27","28"],
-        "EAST": ["8","9","10"]
-    },
-    "DFW": {
-        "SOUTH": ["18","17"],
-        "NORTH": ["36","35"]
-    },
-    "BUF": {
-        "WEST": ["23"],
-        "EAST": ["5"]
-    },    
-    "CLE": {
-        "SOUTH": ["24"],
-        "NORTH": ["6"]
-    },
-    "PIT": {
-        "WEST": ["28","32"],
-        "EAST": ["10","14"]
-    },
-}
+with open ("data/runway_flow.json", "r") as f:
+    RUNWAY_FLOW_MAP = json.load(f)
 
 
 MONGO_URI = os.getenv("MONGO_URI")
@@ -76,7 +51,6 @@ airway_collection = db["airways"]
 star_rte_collection = db["star_rte"]
 dp_rte_collection = db["sid_rte"]
 enroute_collection = db["enroute"]
-
 
 
 def jwt_required(func):
@@ -226,16 +200,6 @@ def airport_info():
 def home():
 
     return render_template("index.html")
-
-@app.route("/SOPs")
-def SOPs():
-
-    return redirect("https://clevelandcenter.org/downloads")
-
-@app.route("/refs")
-def refs():
-
-    return redirect("https://refs.clevelandcenter.org")
 
 @app.route('/search', methods=['GET','POST'])
 def search():
@@ -793,9 +757,69 @@ def api_enroute():
 
     return jsonify(results)
     
+# DELETE endpoint to delete an enroute
+@app.route('/api/enroute/<enroute_id>', methods=['DELETE'])
+@jwt_required
+def delete_enroute(enroute_id):
+    # Delete the crossing from the database
+    result = enroute_collection.delete_one({"_id": ObjectId(enroute_id)})
 
+    if result.deleted_count == 0:
+        return jsonify({"error": "Enroute entry not found"}), 404
 
+    return jsonify({"message": "Enroute entry deleted successfully"}), 200
 
+# PUT endpoint to update an enroute
+@app.route('/api/enroute/<enroute_id>', methods=['PUT'])
+@jwt_required
+def update_enroute(enroute_id):
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Update the enroute in the database
+    result = enroute_collection.update_one(
+        {"_id": ObjectId(enroute_id)},
+        {"$set": {
+            "areas": data.get('areas'),
+            "field": data.get('field'),
+            "qualifier": data.get('qualifier'),
+            "rule": data.get('rule'),
+        }}
+    )
+
+    if result.matched_count == 0:
+        return jsonify({"error": "Enroute entry not found"}), 404
+
+    return jsonify({"message": "Enroute entry updated successfully"}), 200
+
+# POST endpoint to create a new crossing
+@app.route('/api/enroute', methods=['POST'])
+@jwt_required
+def create_enroute():
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Validate required fields
+    required_fields = ['areas', 'field', 'qualifier', 'rule']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    # Insert the new enroute into the database
+    new_enroute = {
+        "areas": data.get('areas'),
+        "field": data.get('field'),
+        "qualifier": data.get('qualifier'),
+        "rule": data.get('rule'),
+    }
+    result = enroute_collection.insert_one(new_enroute)
+
+    return jsonify({
+        "message": "Crossing created successfully",
+        "enroute_id": str(result.inserted_id)  # Return the ID of the newly created enroute
+    }), 201
 
 @app.route('/api/controllers')
 def get_center_controllers():
@@ -873,40 +897,6 @@ def route_to_skyvector():
 with open('data/flight_plans.json') as f: 
     flight_plans = json.load(f)
 
-@app.route('/flightdata')
-def flightdata():
-    plan = random.choice(flight_plans)
-    return render_template('trainer.html', plan=plan['incorrect'], correct=plan['correct'])
-
-
-def normalize_route(s):
-    return ' '.join(s.upper().split())
-
-@app.route('/trainer/check', methods=['POST'])
-def check_trainer():
-    data = request.json
-
-    def normalize(text):
-        return ' '.join(text.upper().split())
-
-    rte_input = normalize(data.get('rte', ''))
-    alt_input = data.get('alt', '').strip()
-
-    # Get correct values from the form POST data
-    correct_rtes = data.get('correct_rte')
-    correct_alts = data.get('correct_alt')
-
-    # Handle multiple correct values (list or string)
-    correct_rte_list = eval(correct_rtes) if correct_rtes.startswith("[") else [correct_rtes]
-    correct_alt_list = eval(correct_alts) if correct_alts.startswith("[") else [correct_alts]
-
-    rte_correct = rte_input in [normalize(r) for r in correct_rte_list]
-    alt_correct = alt_input in [str(a).strip() for a in correct_alt_list]
-
-    return jsonify({
-        'rte_correct': rte_correct,
-        'alt_correct': alt_correct
-    })
 
 @app.route('/checkroute')
 def checkroute():
