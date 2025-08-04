@@ -554,6 +554,7 @@ def searchroute(origin, destination):
                 isActive = True
 
         routes_dict[key] = {
+            '_id': str(row['_id']),  # Add ID
             'origin': route_origin,
             'destination': route_destination,
             'route': route_string,
