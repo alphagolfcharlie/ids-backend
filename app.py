@@ -245,6 +245,7 @@ def update_route(route_id):
             "origin": data.get('origin'),
             "destination": data.get('destination'),
             "route": data.get('route'),
+            "altitude": data.get('altitude'),
             "notes": data.get('notes'),
         }}
     )
@@ -279,12 +280,16 @@ def create_route():
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"'{field}' is required"}), 400
+    
+    altitude = data.get('altitude', '')  # Default to an empty string if not provided
+
 
     # Insert the new crossing into the database
     new_route = {
         "origin": data.get('origin'),
         "destination": data.get('destination'),
         "route": data.get('route'),
+        "altitude": altitude,
         "notes": data.get('notes'),
     }
     result = routes_collection.insert_one(new_route)
