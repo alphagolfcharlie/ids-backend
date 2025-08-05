@@ -276,6 +276,10 @@ def searchroute(origin, destination):
                 flow = get_flow(destination)
                 if flow and flow.upper() in direction.upper():
                     isActive = True
+            
+            fields = [row.get("Area", ""), row.get("Direction", ""), row.get("Aircraft", "")]
+            notes = ', '.join(filter(None, fields))
+
 
             # Check if custom route already exists for this key
             custom_altitude = ''
