@@ -1,20 +1,21 @@
-from flask import Flask, redirect, url_for, render_template, request, jsonify, session, json, Response
-import requests, re, sqlite3, random
-from datetime import timedelta
+from flask import Flask, redirect, render_template, request, jsonify, json
+import requests, re
 from functools import wraps
-from math import radians, cos, sin, asin, sqrt
-from dist import getCoords
+from auxfns.dist import getCoords
+from auxfns.searchroute import searchroute
+from auxfns.wx import get_atis, get_metar
 import urllib.parse
 from pymongo import MongoClient, DESCENDING
 from bson.objectid import ObjectId
 import os
 from dotenv import load_dotenv
-from collections import OrderedDict
 from flask_cors import CORS
 import jwt
 import datetime
 from google.oauth2 import id_token
 from google.auth.transport.requests import Request 
+from models.db import routes_collection, crossings_collection, faa_routes_collection
+from models.db import fixes_collection, navaids_collection, airway_collection, star_rte_collection, dp_rte_collection, enroute_collection
 
 
 load_dotenv()
@@ -29,6 +30,7 @@ CORS(app, resources={r"/api/*": {
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://idsnew.vercel.app"
+        "https://ids.alphagolfcharlie.dev"
     ]
 }})
 
@@ -121,73 +123,6 @@ def google_login():
         print("Unexpected error:", e)
         return jsonify({"error": "Internal server error"}), 500
 
-#get flow
-def get_flow(airport_code):
-    airport_code = airport_code.upper()
-    if airport_code not in RUNWAY_FLOW_MAP:
-        return None
-
-    try:
-        aptIcao = "K" + airport_code
-        datis_url = f"https://datis.clowd.io/api/{aptIcao}"
-        response = requests.get(datis_url)
-
-        if response.status_code != 200:
-            return None
-
-        atis_data = response.json()
-        atis_text = atis_data[1]
-        atis_datis = atis_text['datis']
-
-        flow_config = RUNWAY_FLOW_MAP[airport_code]
-        for flow_direction, runways in flow_config.items():
-            for rwy in runways:
-                if re.search(rf"DEPG RWY {rwy}[LRC]?", atis_datis):
-                    return flow_direction.upper()
-                elif re.search(rf"DEPG RWYS {rwy}[LRC]?", atis_datis):
-                    return flow_direction.upper()               
-                elif re.search(rf"DEPTG RWY {rwy}[LRC]?", atis_datis):
-                    return flow_direction.upper()
-        return None
-    except Exception as e:
-        print(f"Flow detection error for {airport_code}: {e}")
-        return None
-    
-#get metar
-def get_metar(icao):
-    url = f"https://aviationweather.gov/api/data/metar?ids={icao}&format=raw&hours=1"
-
-    try:
-        response = requests.get(url, timeout=5)
-
-        # Ensure the response is valid
-        if response.status_code != 200:
-            return f"Error: API returned status {response.status_code}"
-
-        text = response.text.strip()
-        if not text:
-            return "No METAR available"
-
-        return text
-
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-# get ATIS 
-def get_atis(station):
-    try:
-        response = requests.get(f"https://datis.clowd.io/api/K{station}", timeout=3)
-        if response.status_code != 200:
-            return None
-        datis = response.json()
-        if datis[0]["type"] == "combined":
-            return datis[0]["datis"]
-        elif len(datis) > 1:
-            return f"Departure: {datis[1]['datis']}\nArrival: {datis[0]['datis']}"
-        return datis[0]["datis"]
-    except Exception as e:
-        return f"ATIS fetch failed: {e}"
-
 # combine ATIS and METAR
 @app.route("/api/airport_info")
 def airport_info():
@@ -202,25 +137,6 @@ def airport_info():
         }
     return jsonify(data)
 
-@app.route("/")
-def home():
-
-    return render_template("index.html")
-
-@app.route('/search', methods=['GET','POST'])
-def search():
-
-    origin = request.args.get('origin','').upper()
-    destination = request.args.get('destination','').upper()
-    routes = searchroute(origin, destination)
-    searched = True
-    return render_template("search.html", routes=routes, searched=searched)
-
-def normalize(text):
-    try:
-        return ' '.join(str(text).strip().upper().split())
-    except Exception:
-        return ''
 
 @app.route('/api/routes')
 def api_routes():
@@ -473,194 +389,10 @@ def get_sid_transition():
         'waypoints': waypoints
     })
 
-def searchroute(origin, destination):
-    if len(origin) == 4 and origin.startswith('K'):
-        origin = origin[1:]
-    if len(destination) == 4 and destination.startswith('K'):
-        destination = destination[1:]
-
-    print(origin, destination)
-    query = {}
-    if origin and destination:
-        query = {
-            "$and": [
-                {"$or": [
-                    {"origin": origin},
-                    {"notes": {"$regex": origin, "$options": "i"}}
-                ]},
-                {"destination": destination}
-            ]
-        }
-    elif origin:
-        query = {"$or": [
-            {"origin": origin},
-            {"notes": {"$regex": origin, "$options": "i"}}
-        ]}
-    elif destination:
-        query = {"destination": destination}
-
-    # If both origin and destination are not provided, return only custom routes
-    if not origin and not destination:
-        custom_matches = list(routes_collection.find({}))
-        faa_matches = []  # Skip FAA routes
-    else:
-        # Step 1: Fetch all matches
-        custom_matches = list(routes_collection.find(query))
-
-        # FAA query
-        faa_query = {}
-        if origin and destination:
-            faa_query = {
-                "$and": [
-                    {"$or": [
-                        {"Orig": origin},
-                        {"Area": {"$regex": origin, "$options": "i"}}
-                    ]},
-                    {"Dest": destination}
-                ]
-            }
-        elif origin:
-            faa_query = {
-                "$or": [
-                    {"Orig": origin},
-                    {"Area": {"$regex": origin, "$options": "i"}}
-                ]
-            }
-        elif destination:
-            faa_query = {"Dest": destination}
-
-        faa_matches = list(faa_routes_collection.find(faa_query))
-
-    # Step 2: Prepare deduplication dictionary
-    routes_dict = OrderedDict()
-
-    # Step 3: Insert custom routes first
-    for row in custom_matches:
-        route_string = normalize(row.get("route", ""))
-        route_origin = row.get("origin", "").upper()
-        route_destination = row.get("destination", "").upper()
-        route_notes = row.get("notes", "")
-        key = (route_origin, route_destination, route_string)
-
-        CurrFlow = ''
-        isActive = False
-        hasFlows = False
-        eventRoute = 'EVENT' in route_notes.upper()
-
-        if destination in RUNWAY_FLOW_MAP:
-            hasFlows = True
-            CurrFlow = get_flow(destination)
-            if CurrFlow and CurrFlow.upper() in route_notes.upper():
-                isActive = True
-
-        routes_dict[key] = {
-            '_id': str(row['_id']),  # Add ID
-            'origin': route_origin,
-            'destination': route_destination,
-            'route': route_string,
-            'altitude': row.get("altitude", ""),
-            'notes': route_notes,
-            'flow': CurrFlow or '',
-            'isActive': isActive,
-            'hasFlows': hasFlows,
-            'source': 'custom',
-            'isEvent': eventRoute
-        }
-
-    # Step 4: Overwrite duplicates with FAA routes (only if origin and destination are provided)
-    if origin or destination:
-        for row in faa_matches:
-            route_string = normalize(row.get("Route String", ""))
-            route_origin = origin.upper()
-            route_destination = destination.upper()
-            key = (route_origin, route_destination, route_string)
-
-            isActive = False
-            hasFlows = False
-            flow = ''
-            direction = row.get("Direction", "")
-
-            if direction and destination in RUNWAY_FLOW_MAP:
-                hasFlows = True
-                flow = get_flow(destination)
-                if flow and flow.upper() in direction.upper():
-                    isActive = True
-
-            routes_dict[key] = {
-                'origin': route_origin,
-                'destination': route_destination,
-                'route': route_string,
-                'altitude': '',
-                'notes': row.get("Area", ""),
-                'flow': flow,
-                'isActive': isActive,
-                'hasFlows': hasFlows,
-                'source': 'faa',
-                'isEvent': False
-            }
-
-    def sort_priority(route):
-        if route['isEvent']:
-            return 0
-        elif route['isActive']:
-            return 1
-        elif route['source'] == 'custom':
-            return 2
-        else:
-            return 3
-
-    sorted_routes = sorted(routes_dict.values(), key=sort_priority)
-    return sorted_routes    
-
-def check_auth(username, password): 
-    return username == 'admin' and password == 'password'
-
-def authenticate():
-    return Response(
-        'Access denied. Provide correct credentials.', 401,
-        {'WWW-Authenticate': 'Basic realm="Login Required"'})
-
-def requires_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
-            return authenticate()
-        return f(*args, **kwargs)
-    return decorated
-
-
-@app.route('/map')
-def show_map():
-
-    return render_template("map.html")
-
 @app.route('/api/aircraft')
 def aircraft():
     acarr = getCoords()
     return jsonify(acarr)
-
-@app.route('/crossings')
-def crossings():
-
-
-    destination = request.args.get('destination','').upper()
-    query = {"destination": destination} if destination else {}
-    rows = crossings_collection.find(query).sort("destination", 1)
-
-    crossings = []
-    for row in rows:
-        crossings.append({
-            'destination': row.get('destination'),
-            'fix': row.get('bdry_fix'),
-            'restriction': row.get('restriction'),
-            'notes': row.get('notes'),
-            'artcc': row.get('artcc')
-        })
-
-    searched = True
-    return render_template("crossings.html", crossings=crossings)
-
 
 @app.route('/api/crossings')
 def api_crossings():
@@ -751,6 +483,7 @@ def create_crossing():
 
 @app.route('/api/enroute')
 def api_enroute():
+
     field = request.args.get('field', '').upper()
     if len(field) == 4 and field.startswith('K'):
         field = field[1:]
@@ -796,7 +529,9 @@ def api_enroute():
     results = sorted(results, key=lambda x: x['field'])
 
     return jsonify(results)    
+
 # DELETE endpoint to delete an enroute
+
 @app.route('/api/enroute/<enroute_id>', methods=['DELETE'])
 @jwt_required
 def delete_enroute(enroute_id):
@@ -898,7 +633,7 @@ def get_center_controllers():
         return jsonify({"error": "Failed to fetch controller data", "details": str(e)}), 500
 
 
-@app.route('/route-to-skyvector') #api 
+@app.route('/api/route-to-skyvector') #api 
 def route_to_skyvector():
 
 
@@ -934,109 +669,6 @@ def route_to_skyvector():
     except Exception as e:
         return f"Error: {str(e)}", 500
 
-with open('data/flight_plans.json') as f: 
-    flight_plans = json.load(f)
-
-
-@app.route('/checkroute')
-def checkroute():
-
-
-    callsign = request.args.get('callsign', '').upper().strip()
-    if not callsign:
-        return jsonify({
-            "status": "error",
-            "message": "Missing 'callsign' parameter"
-        }), 400
-
-    try:
-        print(f"Looking for: {callsign}")
-        datafeed = "https://data.vatsim.net/v3/vatsim-data.json"
-        response = requests.get(datafeed, timeout=5)
-        data = response.json()
-
-        for pilot in data.get('pilots', []):
-            if pilot.get('callsign', '').upper() == callsign:
-                fp = pilot.get('flight_plan')
-                if not fp:
-                    return jsonify({
-                        "status": "not_found",
-                        "message": f"No flight plan found for {callsign}"
-                    }), 404
-
-                origin = fp.get("departure", "").strip().upper()[1:]
-                destination = fp.get("arrival", "").strip().upper()[1:]
-                route = fp.get("route", "").strip().upper()
-
-                if not (origin and destination):
-                    return jsonify({
-                        "status": "error",
-                        "message": "Flight plan is missing departure or arrival"
-                    }), 400
-
-                def normalize(r): return ' '.join(r.upper().split())
-                route_normalized = normalize(route)
-
-                # --- Search your custom routes DB
-                custom_matches = list(routes_collection.find({
-                    "$and": [
-                        {"destination": destination},
-                        {"$or": [
-                            {"origin": origin},
-                            {"notes": {"$regex": origin, "$options": "i"}}
-                        ]}
-                    ]
-                }))
-                custom_normalized = [normalize(row.get("route", "")) for row in custom_matches]
-
-                # --- Search FAA preferred routes DB
-                faa_matches = list(faa_routes_collection.find({
-                    "Orig": origin,
-                    "Dest": destination
-                }))
-
-                faa_normalized = [normalize(row.get("Route String", "")) for row in faa_matches]
-
-
-                is_valid = route_normalized in custom_normalized or route_normalized in faa_normalized
-
-
-                faa_routes = [
-                {
-                    "route": row.get("Route String", ""),
-                    "type": row.get("Type", ""),
-                    "aircraft": row.get("Aircraft", ""),
-                    "area": row.get("Area", ""),
-                    "acntr": row.get("ACNTR", ""),
-                    "dcntr": row.get("DCNTR", "")
-                }
-                for row in faa_matches
-                ]
-
-                return jsonify({
-                    "status": "valid" if is_valid else "invalid",
-                    "filed_route": route,
-                    "origin": origin,
-                    "destination": destination,
-                    "message": (
-                        f"Route is valid for {origin} to {destination}"
-                        if is_valid else
-                        f"Filed route does not match known routes for {origin} to {destination}"
-                    ),
-                    "valid_routes": [row.get("route", "") for row in custom_matches],
-                    "faa_routes": faa_routes
-                }), 200
-
-        return jsonify({
-            "status": "not_found",
-            "message": f"Callsign {callsign} not found in VATSIM data"
-        }), 404
-
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Internal server error: {str(e)}"
-        }), 500
 
 if __name__ == "__main__":
     app.run()
