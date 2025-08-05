@@ -277,11 +277,16 @@ def searchroute(origin, destination):
                 if flow and flow.upper() in direction.upper():
                     isActive = True
 
+            # Check if custom route already exists for this key
+            custom_altitude = ''
+            if key in routes_dict and routes_dict[key]['source'] == 'custom':
+                custom_altitude = routes_dict[key].get('altitude', '')
+
             routes_dict[key] = {
                 'origin': route_origin,
                 'destination': route_destination,
                 'route': route_string,
-                'altitude': '',
+                'altitude': custom_altitude,  # retain custom altitude if present
                 'notes': row.get("Area", ""),
                 'flow': flow,
                 'isActive': isActive,
