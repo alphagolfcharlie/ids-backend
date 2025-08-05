@@ -635,7 +635,7 @@ def create_crossing():
         return jsonify({"error": "No data provided"}), 400
 
     # Validate required fields
-    required_fields = ['destination', 'fix', 'restriction', 'notes', 'artcc']
+    required_fields = ['destination', 'restriction', 'artcc']
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"'{field}' is required"}), 400
