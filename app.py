@@ -291,7 +291,7 @@ def searchroute(origin, destination):
                 'destination': route_destination,
                 'route': route_string,
                 'altitude': custom_altitude,  # retain custom altitude if present
-                'notes': row.get("Area", ""),
+                'notes': notes,
                 'flow': flow,
                 'isActive': isActive,
                 'hasFlows': hasFlows,
