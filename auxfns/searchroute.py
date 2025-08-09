@@ -34,7 +34,11 @@ def normalize(text):
 def searchroute(origin, destination):
     if len(origin) == 4 and origin.startswith('K'):
         origin = origin[1:]
+    elif len(origin) == 4 and origin.startswith('C'):
+        origin = origin[1:]
     if len(destination) == 4 and destination.startswith('K'):
+        destination = destination[1:]
+    elif len(destination) == 4 and destination.startswith('C'): 
         destination = destination[1:]
 
     print(origin, destination)
