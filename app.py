@@ -663,7 +663,7 @@ def get_center_controllers():
             callsign = controller.get("callsign", "").upper()
 
             # Match pattern like TOR_CTR, TOR_12_CTR, WPG_1_CTR, etc.
-            match = re.match(r"^([A-Z]{3})_(?:\d{1,3}_)?(?:CTR|FSS)$", callsign)
+            match = re.match(r"^([A-Z]{3,4})_(?:\d{1,3}_)?(?:CTR|FSS)$", callsign)
             if match:
                 prefix = match.group(1)
                 if prefix in callsign_to_artcc:  # ensures only Canadian FIRs from your dict
