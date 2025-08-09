@@ -4,6 +4,8 @@ from auxfns.wxflow import get_flow
 from pymongo import MongoClient, DESCENDING
 from collections import OrderedDict
 
+from dotenv import load_dotenv
+load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
 
