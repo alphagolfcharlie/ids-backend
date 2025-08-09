@@ -56,10 +56,11 @@ with open ("data/runway_flow.json", "r") as f:
     RUNWAY_FLOW_MAP = json.load(f)
 
 
-MONGO_URI = os.getenv("MONGO_URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 AUTHORIZED_EMAILS = os.getenv("AUTHORIZED_EMAILS", "").split(",")
+ATIS_AIRPORTS = os.getenv("ATIS_AIRPORTS", "").split(",")
+
 
 client = MongoClient(MONGO_URI)
 
@@ -144,9 +145,8 @@ def google_login():
 # combine ATIS and METAR
 @app.route("/api/airport_info")
 def airport_info():
-    airports = ["KDTW", "KCLE", "KPIT", "KBUF"]
     data = {}
-    for airport in airports:
+    for airport in ATIS_AIRPORTS:
         code = airport.replace("K", "")
         data[airport] = {
             "metar": get_metar(airport),

@@ -40,7 +40,7 @@ def getCoords():
     filtere = [
         (callsign, departure, arrival, route, lat, long, alt)
         for callsign, departure, arrival, route, lat, long, alt in result
-        if lat and long and finddist(target_lat, target_lon, lat, long) < 600
+        if lat and long and finddist(target_lat, target_lon, lat, long) < 1000
     ]
 
     acarr = []
