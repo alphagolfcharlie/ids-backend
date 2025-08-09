@@ -52,9 +52,6 @@ CORS(app, resources={r"/api/*": {
     ]
 }})
 
-with open ("data/runway_flow.json", "r") as f:
-    RUNWAY_FLOW_MAP = json.load(f)
-
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -154,9 +151,6 @@ def airport_info():
         }
     return jsonify(data)
 
-
-with open ("data/runway_flow.json", "r") as f:
-    RUNWAY_FLOW_MAP = json.load(f)
 
 @app.route('/api/routes')
 def api_routes():
