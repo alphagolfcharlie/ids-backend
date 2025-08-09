@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.0-alpha.7] - 2025-09-08
+### Fixed
+- Issue where C would be an invalid prefix (now CYYZ is allowed for enroute and enroute crossings)
+
 ## [v1.0.0-alpha.6] - 2025-09-08
 ### Fixed
 - Issue where C would be an invalid prefix (now CYYZ is allowed for routing)
@@ -18,5 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial major release.
 
 [Unreleased]: https://github.com/OWNER/REPO/compare/v1.0.0-alpha.5...HEAD
-[v1.0.0-alpha.5]: https://github.com/OWNER/REPO/compare/v1.0.0-alpha.4...v1.0.0-alpha.5
-[v1.0.0-alpha.4]: https://github.com/OWNER/REPO/releases/tag/v1.0.0-alpha.4
+[v1.0.0-alpha.7]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.6...v1.0.0-alpha.7
+[v1.0.0-alpha.6]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.5...v1.0.0-alpha.6
+[v1.0.0-alpha.5]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.4...v1.0.0-alpha.5
+[v1.0.0-alpha.4]: https://github.com/alphagolfcharlie/ids-backend/releases/tag/v1.0.0-alpha.4
