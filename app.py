@@ -413,6 +413,9 @@ def api_crossings():
     destination = request.args.get('destination', '').upper()
     if len(destination) == 4 and destination.startswith('K'):
         destination = destination[1:]
+    elif len(destination) == 4 and destination.startswith('C'):
+        destination = destination[1:]
+
     query = {"destination": destination} if destination else {}
     rows = crossings_collection.find(query).sort("destination", 1)
 
@@ -500,6 +503,8 @@ def api_enroute():
 
     field = request.args.get('field', '').upper()
     if len(field) == 4 and field.startswith('K'):
+        field = field[1:]
+    elif len(field) == 4 and field.startswith('C'):
         field = field[1:]
     area = request.args.get('area', '').strip()
     qualifier = request.args.get('qualifier','').strip()
