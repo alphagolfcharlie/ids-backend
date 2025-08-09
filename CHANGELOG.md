@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial major release.
 
 [Unreleased]: https://github.com/OWNER/REPO/compare/v1.0.0-alpha.5...HEAD
-[v1.1.0] https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.7...v1.1.0
+[v1.1.0]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.7...v1.1.0
 [v1.0.0-alpha.7]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.6...v1.0.0-alpha.7
 [v1.0.0-alpha.6]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.5...v1.0.0-alpha.6
 [v1.0.0-alpha.5]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.4...v1.0.0-alpha.5
