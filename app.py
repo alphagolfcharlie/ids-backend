@@ -617,32 +617,62 @@ def create_enroute():
 
 @app.route('/api/controllers')
 def get_center_controllers():
-    #live network, not sweatbox
     vnasurl = "https://live.env.vnas.vatsim.net/data-feed/controllers.json"
-    try:
-        response = requests.get(vnasurl)
-        response.raise_for_status()
-        data = response.json()
+    vatsimurl = "https://data.vatsim.net/v3/vatsim-data.json"
 
-        # Filter: active, not observers, facilityType == "CCan yCenter"
+    # Mapping from callsign prefix to ARTCC ID
+    callsign_to_artcc = {
+        "TOR": "CZYZ",  # Toronto Center
+        "WPG": "CZWG",  # Winnipeg Center
+        "CZVR": "CZVR",  # Vancouver Center
+        "MTL": "CZUL",  # Montreal Center
+        "CZQM": "CZQM",  # Moncton/Gander Center
+        "CZQX": "CZQM",  # Moncton/Gander Center
+        "CZEG": "CZEG",  # Edmonton Center
+    }
+
+    try:
+        # Fetch vNAS controllers
+        vnas_response = requests.get(vnasurl)
+        vnas_response.raise_for_status()
+        vnas_data = vnas_response.json()
+
+        # Filter: active, not observers, facilityType == "Center"
         center_controllers = [
-            controller for controller in data["controllers"]
+            controller for controller in vnas_data["controllers"]
             if controller.get("isActive") == True
             and controller.get("isObserver") == False
             and controller.get("vatsimData", {}).get("facilityType") == "Center"
         ]
 
         tracon_controllers = [
-            controller for controller in data["controllers"]
+            controller for controller in vnas_data["controllers"]
             if controller.get("isActive") == True
             and controller.get("isObserver") == False
             and controller.get("vatsimData", {}).get("facilityType") == "ApproachDeparture"
             and controller.get("artccId") == "ZOB"
         ]
 
+        # Fetch VATSIM controllers for Canadian data
+        vatsim_response = requests.get(vatsimurl)
+        vatsim_response.raise_for_status()
+        vatsim_data = vatsim_response.json()
+
+        canadian_controllers = []
+        for controller in vatsim_data.get("controllers", []):
+            callsign = controller.get("callsign", "").upper()
+
+            # Match pattern like TOR_CTR, TOR_12_CTR, WPG_1_CTR, etc.
+            match = re.match(r"^([A-Z]{3})_(?:\d{1,3}_)?(?:CTR|FSS)$", callsign)
+            if match:
+                prefix = match.group(1)
+                if prefix in callsign_to_artcc:  # ensures only Canadian FIRs from your dict
+                    controller["artccId"] = callsign_to_artcc[prefix]
+                    canadian_controllers.append(controller)
+
         filtered_data = {
-            "updatedAt": data.get("updatedAt"),
-            "controllers": center_controllers, 
+            "updatedAt": vnas_data.get("updatedAt"),
+            "controllers": center_controllers + canadian_controllers,
             "tracon": tracon_controllers
         }
 
