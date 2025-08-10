@@ -41,7 +41,6 @@ def searchroute(origin, destination):
     elif len(destination) == 4 and destination.startswith('C'): 
         destination = destination[1:]
 
-    print(origin, destination)
     query = {}
     if origin and destination:
         query = {

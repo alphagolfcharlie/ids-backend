@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.2.0] - 2025-11-08
+
+### Added
+- Aircraft API can now take a radius (from DJB, for now) parameter (defaults to 400 otherwise)
+- Airport info, pilot info, and controller info is cached so that unnecessary API calls need not be made
+
+### Fixed
+- Issue where aircraft radius from DJB was in KM, not in NM
+
 ## [v1.1.1] - 2025-09-08
 ### Fixed
 - Issue where four-letter FIRs would not display
@@ -31,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial major release.
 
 [Unreleased]: https://github.com/OWNER/REPO/compare/v1.0.0-alpha.5...HEAD
+[v1.2.0]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.1.1...v1.2.0
 [v1.1.1]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.1.0...v1.1.1
 [v1.1.0]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.7...v1.1.0
 [v1.0.0-alpha.7]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.6...v1.0.0-alpha.7
