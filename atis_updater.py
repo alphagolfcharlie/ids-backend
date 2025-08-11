@@ -6,7 +6,7 @@ import os
 
 CACHE_FILE = "/opt/ids-backend/airport_info_cache.json"
 CACHE_REFRESH_INTERVAL = 60  # seconds (1 minute)
-ATIS_AIRPORTS = os.getenv("ATIS_AIRPORTS", "").split(",")
+ATIS_AIRPORTS = ["KDTW","KCLE","KBUF","KPIT"]
 
 with open("data/runway_flow.json", "r") as f:
     RUNWAY_FLOW_MAP = json.load(f)
