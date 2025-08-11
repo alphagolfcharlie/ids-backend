@@ -3,7 +3,7 @@ import re
 import time
 import json
 
-CACHE_FILE = "controller_cache.json"
+CACHE_FILE = "/opt/ids-backend-1108/controller_cache.json"
 
 callsign_to_artcc = {
     "TOR": "CZYZ",

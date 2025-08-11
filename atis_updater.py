@@ -4,7 +4,7 @@ import time
 import json
 import os
 
-CACHE_FILE = "/opt/ids-backend/airport_info_cache.json"
+CACHE_FILE = "/opt/ids-backend-1108/airport_info_cache.json"
 CACHE_REFRESH_INTERVAL = 60  # seconds (1 minute)
 ATIS_AIRPORTS = ["KDTW","KCLE","KBUF","KPIT"]
 

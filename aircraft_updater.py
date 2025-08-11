@@ -4,7 +4,7 @@ import time
 import json
 from math import radians, sin, cos, asin, sqrt
 
-CACHE_FILE = "aircraft_cache.json"
+CACHE_FILE = "/opt/ids-backend-1108/aircraft_cache.json"
 CACHE_REFRESH_INTERVAL = 60  # seconds (1 minute)
 MAX_CACHE_RADIUS = 1000      # nautical miles for cache
 
