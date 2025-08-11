@@ -137,7 +137,7 @@ def google_login():
         return jsonify({"error": "Internal server error"}), 500
 
 
-INFO_CACHE_FILE = "/opt/ids-backend/airport_info_cache.json"
+INFO_CACHE_FILE = "/opt/ids-backend-1108/airport_info_cache.json"
 
 @app.route("/api/airport_info")
 def airport_info():
@@ -402,7 +402,7 @@ def get_sid_transition():
     })
 
 
-AC_CACHE_FILE = "/opt/ids-backend/aircraft_cache.json"
+AC_CACHE_FILE = "/opt/ids-backend-1108/aircraft_cache.json"
 DEFAULT_RADIUS = 400  # nm
 
 @app.route('/api/aircraft')
@@ -634,7 +634,7 @@ def create_enroute():
         "enroute_id": str(result.inserted_id)  # Return the ID of the newly created enroute
     }), 201
 
-CTL_CACHE_FILE = "controller_cache.json"
+CTL_CACHE_FILE = "/opt/ids-backend-1108/controller_cache.json"
 
 @app.route('/api/controllers')
 def get_center_controllers():
