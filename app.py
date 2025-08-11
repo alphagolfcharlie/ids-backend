@@ -1,7 +1,6 @@
 from flask import Flask, redirect, request, jsonify, json
 import requests, re, threading, time, os, jwt, datetime, urllib.parse
 from functools import wraps
-from auxfns.dist import getCoords
 from auxfns.searchroute import searchroute
 from pymongo import MongoClient, DESCENDING
 from bson.objectid import ObjectId
@@ -137,105 +136,18 @@ def google_login():
         print("Unexpected error:", e)
         return jsonify({"error": "Internal server error"}), 500
 
-# Cache dict to hold airport info data and last update time
-airport_info_cache = {
-    "data": None,
-    "last_updated": None
-}
 
-CACHE_REFRESH_INTERVAL = 60  # seconds (1 minute)
-
-def get_flow(airport_code):
-    airport_code = airport_code.upper()
-    if airport_code not in RUNWAY_FLOW_MAP:
-        return None
-    try:
-        aptIcao = "K" + airport_code
-        datis_url = f"https://datis.clowd.io/api/{aptIcao}"
-        response = requests.get(datis_url, timeout=5)
-        if response.status_code != 200:
-            return None
-
-        atis_data = response.json()
-        if not isinstance(atis_data, list) or len(atis_data) == 0:
-            return None
-
-        # Prefer departure ATIS if available
-        if len(atis_data) > 1:
-            atis_text = atis_data[1]
-        else:
-            atis_text = atis_data[0]
-
-        atis_datis = atis_text.get('datis', "")
-
-        flow_config = RUNWAY_FLOW_MAP[airport_code]
-        for flow_direction, runways in flow_config.items():
-            for rwy in runways:
-                if re.search(rf"DEPG RWY {rwy}[LRC]?", atis_datis) or \
-                   re.search(rf"DEPG RWYS {rwy}[LRC]?", atis_datis) or \
-                   re.search(rf"DEPTG RWY {rwy}[LRC]?", atis_datis):
-                    return flow_direction.upper()
-        return None
-    except Exception as e:
-        print(f"Flow detection error for {airport_code}: {e}")
-        return None
-
-def get_metar(icao):
-    url = f"https://aviationweather.gov/api/data/metar?ids={icao}&format=raw&hours=1"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code != 200:
-            return f"Error: API returned status {response.status_code}"
-        text = response.text.strip()
-        if not text:
-            return "No METAR available"
-        return text
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-def get_atis(station):
-    try:
-        response = requests.get(f"https://datis.clowd.io/api/K{station}", timeout=5)
-        if response.status_code != 200:
-            return None
-        datis = response.json()
-        if datis[0]["type"] == "combined":
-            return datis[0]["datis"]
-        elif len(datis) > 1:
-            return f"Departure: {datis[1]['datis']}\nArrival: {datis[0]['datis']}"
-        return datis[0]["datis"]
-    except Exception as e:
-        return f"ATIS fetch failed: {e}"
-
-def refresh_airport_info_cache():
-    while True:
-        print("Refreshing airport info cache...")
-        data = {}
-        for airport in ATIS_AIRPORTS:
-            code = airport.replace("K", "")
-            data[airport] = {
-                "metar": get_metar(airport),
-                "atis": get_atis(code),
-                "flow": get_flow(code)
-            }
-        airport_info_cache["data"] = data
-        airport_info_cache["last_updated"] = time.time()
-        time.sleep(CACHE_REFRESH_INTERVAL)
+INFO_CACHE_FILE = "/opt/ids-backend/airport_info_cache.json"
 
 @app.route("/api/airport_info")
 def airport_info():
-    if airport_info_cache["data"]:
-        return jsonify(airport_info_cache["data"])
-    else:
-        # Cache empty at startup, fetch synchronously once
-        refresh_airport_info_cache()
-        if airport_info_cache["data"]:
-            return jsonify(airport_info_cache["data"])
-        else:
-            return jsonify({"error": "No airport info available"}), 503
-
-# Start the background thread on app start
-threading.Thread(target=refresh_airport_info_cache, daemon=True).start()
+    try:
+        with open(INFO_CACHE_FILE, "r") as f:
+            data = json.load(f)
+        return jsonify(data)
+    except Exception as e:
+        print(f"Error reading airport info cache: {e}")
+        return jsonify({"error": "No airport info available"}), 503
 
 
 @app.route('/api/routes')
@@ -489,82 +401,9 @@ def get_sid_transition():
         'waypoints': waypoints
     })
 
-# Cache for aircraft data (max radius)
-aircraft_cache = {
-    "data": None,
-    "last_updated": None
-}
 
-CACHE_REFRESH_INTERVAL = 60  # 1 minute
-MAX_CACHE_RADIUS = 1000       # nm for cache
-DEFAULT_RADIUS = 400          # nm for default endpoint response
-
-def finddist(lat1, lon1, lat2, lon2):
-    R = 3440.065  # Radius of Earth in nautical miles
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a))
-    return R * c
-
-def fetch_aircraft_data(radius_nm):
-    url = "https://data.vatsim.net/v3/vatsim-data.json"
-    headers = {'Accept': 'application/json'}
-
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-    except Exception as e:
-        print(f"Error fetching VATSIM data: {e}")
-        return None
-
-    pilots = data.get('pilots', [])
-    result = []
-
-    for entry in pilots:
-        callsign = entry.get("callsign")
-        lat = entry.get("latitude")
-        lon = entry.get("longitude")
-        alt = entry.get("altitude")
-        flight_plan = entry.get("flight_plan")
-
-        if flight_plan and "route" in flight_plan:
-            route = flight_plan.get("route", "")
-            departure = flight_plan.get("departure", "")
-            arrival = flight_plan.get("arrival", "")
-            result.append((callsign, departure, arrival, route, lat, lon, alt))
-
-    target_lat, target_lon = 41.2129, -82.9431  # DJB VOR
-
-    filtered = [
-        (callsign, departure, arrival, route, lat, lon, alt)
-        for callsign, departure, arrival, route, lat, lon, alt in result
-        if lat is not None and lon is not None and finddist(target_lat, target_lon, lat, lon) <= radius_nm
-    ]
-
-    structured = []
-    for callsign, departure, arrival, route, lat, lon, altitude in filtered:
-        structured.append({
-            'callsign': callsign,
-            'route': route,
-            'departure': departure,
-            'destination': arrival,
-            'lat': lat,
-            'lon': lon,
-            'altitude': altitude
-        })
-
-    return structured
-
-def background_aircraft_cache_refresher():
-    while True:
-        print("Refreshing aircraft data cache (max radius)...")
-        data = fetch_aircraft_data(radius_nm=MAX_CACHE_RADIUS)
-        if data is not None:
-            aircraft_cache["data"] = data
-            aircraft_cache["last_updated"] = time.time()
-        time.sleep(CACHE_REFRESH_INTERVAL)
+AC_CACHE_FILE = "/opt/ids-backend/aircraft_cache.json"
+DEFAULT_RADIUS = 400  # nm
 
 @app.route('/api/aircraft')
 def aircraft():
@@ -573,22 +412,20 @@ def aircraft():
     except ValueError:
         radius = DEFAULT_RADIUS
 
-    if aircraft_cache["data"]:
-        target_lat, target_lon = 41.2129, -82.9431
-        filtered = [
-            ac for ac in aircraft_cache["data"]
-            if finddist(target_lat, target_lon, ac["lat"], ac["lon"]) <= radius
-        ]
-        return jsonify(filtered)
-    else:
-        # Cache empty (first startup) → fetch just for this request
-        data = fetch_aircraft_data(radius_nm=radius)
-        if data is None:
-            return jsonify({"error": "Failed to fetch aircraft data"}), 503
-        return jsonify(data)
+    try:
+        with open(AC_CACHE_FILE, "r") as f:
+            cached_data = json.load(f)
+    except Exception as e:
+        print(f"Error reading aircraft cache: {e}")
+        return jsonify({"error": "Cache unavailable"}), 503
 
-# Start background cache refresher thread
-threading.Thread(target=background_aircraft_cache_refresher, daemon=True).start()
+    target_lat, target_lon = 41.2129, -82.9431
+
+    filtered = [
+        ac for ac in cached_data
+    ]
+
+    return jsonify(filtered)
 
 @app.route('/api/crossings')
 def api_crossings():
@@ -797,94 +634,16 @@ def create_enroute():
         "enroute_id": str(result.inserted_id)  # Return the ID of the newly created enroute
     }), 201
 
-# Global cache for controller data
-controller_cache = {
-    "data": None,
-    "last_updated": None
-}
-
-CACHE_REFRESH_INTERVAL = 300  # seconds (5 minutes)
-
-callsign_to_artcc = {
-    "TOR": "CZYZ",  # Toronto Center
-    "WPG": "CZWG",  # Winnipeg Center
-    "CZVR": "CZVR",  # Vancouver Center
-    "MTL": "CZUL",  # Montreal Center
-    "CZQM": "CZQM",  # Moncton/Gander Center
-    "CZQX": "CZQM",  # Moncton/Gander Center
-    "CZEG": "CZEG",  # Edmonton Center
-}
-
-def fetch_controller_data():
-    vnasurl = "https://live.env.vnas.vatsim.net/data-feed/controllers.json"
-    vatsimurl = "https://data.vatsim.net/v3/vatsim-data.json"
-
-    try:
-        vnas_response = requests.get(vnasurl)
-        vnas_response.raise_for_status()
-        vnas_data = vnas_response.json()
-
-        center_controllers = [
-            c for c in vnas_data["controllers"]
-            if c.get("isActive") == True
-            and c.get("isObserver") == False
-            and c.get("vatsimData", {}).get("facilityType") == "Center"
-        ]
-
-        tracon_controllers = [
-            c for c in vnas_data["controllers"]
-            if c.get("isActive") == True
-            and c.get("isObserver") == False
-            and c.get("vatsimData", {}).get("facilityType") == "ApproachDeparture"
-            and c.get("artccId") == "ZOB"
-        ]
-
-        vatsim_response = requests.get(vatsimurl)
-        vatsim_response.raise_for_status()
-        vatsim_data = vatsim_response.json()
-
-        canadian_controllers = []
-        for controller in vatsim_data.get("controllers", []):
-            callsign = controller.get("callsign", "").upper()
-            match = re.match(r"^([A-Z]{3,4})_(?:\d{1,3}_)?(?:CTR|FSS)$", callsign)
-            if match:
-                prefix = match.group(1)
-                if prefix in callsign_to_artcc:
-                    controller["artccId"] = callsign_to_artcc[prefix]
-                    canadian_controllers.append(controller)
-
-        filtered_data = {
-            "updatedAt": vnas_data.get("updatedAt"),
-            "controllers": center_controllers + canadian_controllers,
-            "tracon": tracon_controllers
-        }
-
-        # Update the cache
-        controller_cache["data"] = filtered_data
-        controller_cache["last_updated"] = time.time()
-    
-    except requests.RequestException as e:
-        print(f"Error fetching controller data: {e}")
-
-def background_cache_refresher():
-    while True:
-        fetch_controller_data()
-        time.sleep(CACHE_REFRESH_INTERVAL)
-
-# Start the background thread when app starts
-threading.Thread(target=background_cache_refresher, daemon=True).start()
+CTL_CACHE_FILE = "controller_cache.json"
 
 @app.route('/api/controllers')
 def get_center_controllers():
-    if controller_cache["data"]:
-        return jsonify(controller_cache["data"])
+    if os.path.exists(CTL_CACHE_FILE):
+        with open(CTL_CACHE_FILE, "r") as f:
+            data = json.load(f)
+        return jsonify(data)
     else:
-        # Cache is empty on startup; fetch synchronously once
-        fetch_controller_data()
-        if controller_cache["data"]:
-            return jsonify(controller_cache["data"])
-        else:
-            return jsonify({"error": "No controller data available"}), 503
+        return jsonify({"error": "Cache not available"}), 503
 
 
 @app.route('/api/route-to-skyvector') #api 
