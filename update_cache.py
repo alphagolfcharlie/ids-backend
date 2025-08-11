@@ -83,10 +83,13 @@ def get_atis(station):
 
 def update_wx():
     print("Refreshing airport info cache...")
-    data = {}
+    data = {
+        "updatedAt": time.ctime(),
+        "airports": {}
+    }
     for airport in ATIS_AIRPORTS:
         code = airport.replace("K", "")
-        data[airport] = {
+        data["airports"][airport] = {
             "metar": get_metar(airport),
             "atis": get_atis(code),
             "flow": get_flow(code)
@@ -94,7 +97,7 @@ def update_wx():
     try:
         with open(INFO_CACHE_FILE, "w") as f:
             json.dump(data, f)
-        print(f"Airport info cache updated at {time.ctime()}")
+        print(f"Airport info cache updated at {data['updatedAt']}")
     except Exception as e:
         print(f"Error writing airport info cache: {e}")
 
@@ -159,12 +162,12 @@ def fetch_controller_data():
 def update_controllers():
     data = fetch_controller_data()
     if data:
+        data['cacheUpdatedAt'] = time.ctime()  # Add your own local update time
         with open(CONTROLLER_CACHE_FILE, "w") as f:
             json.dump(data, f)
-        print(f"Cache updated at {time.ctime()}")
+        print(f"Controller cache updated at {data['cacheUpdatedAt']}")
     else:
-        print("Failed to update cache")
-
+        print("Failed to update controller cache")
 
 
 CACHE_REFRESH_INTERVAL = 60  # seconds (1 minute)
@@ -232,14 +235,18 @@ def update_aircraft():
     print("Refreshing aircraft data cache (max radius)...")
     data = fetch_aircraft_data(radius_nm=MAX_CACHE_RADIUS)
     if data is not None:
+        wrapped = {
+            "updatedAt": time.ctime(),
+            "aircraft": data
+        }
         try:
             with open(AIRCRAFT_CACHE_FILE, "w") as f:
-                json.dump(data, f)
-            print(f"Aircraft cache updated at {time.ctime()}")
+                json.dump(wrapped, f)
+            print(f"Aircraft cache updated at {wrapped['updatedAt']}")
         except Exception as e:
-            print(f"Error writing cache file: {e}")
+            print(f"Error writing aircraft cache file: {e}")
     else:
-        print("No data fetched; cache not updated.")
+        print("No aircraft data fetched; cache not updated.")
 
 if __name__ == "__main__":
     update_wx()
