@@ -9,6 +9,7 @@ from flask_cors import CORS
 from google.oauth2 import id_token
 from google.auth.transport.requests import Request 
 from math import radians, cos, sin, asin, sqrt
+from update_cache import finddist
 
 import os
 from pymongo import MongoClient
@@ -421,11 +422,17 @@ def aircraft():
 
     target_lat, target_lon = 41.2129, -82.9431
 
+    aircraft_list = cached_data.get("aircraft", [])
+
     filtered = [
-        ac for ac in cached_data
+        ac for ac in aircraft_list
+        if finddist(ac["lat"], ac["lon"], target_lat, target_lon) <= radius
     ]
 
-    return jsonify(filtered)
+    return jsonify({
+        "updatedAt": cached_data.get("updatedAt"),
+        "aircraft": filtered
+    })
 
 @app.route('/api/crossings')
 def api_crossings():
