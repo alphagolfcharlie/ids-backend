@@ -78,7 +78,6 @@ def update_cache():
             print(f"Error writing cache file: {e}")
     else:
         print("No data fetched; cache not updated.")
-    time.sleep(CACHE_REFRESH_INTERVAL)
 
 if __name__ == "__main__":
     update_cache()

@@ -93,7 +93,6 @@ def update_cache():
         print(f"Airport info cache updated at {time.ctime()}")
     except Exception as e:
         print(f"Error writing airport info cache: {e}")
-    time.sleep(CACHE_REFRESH_INTERVAL)
 
 if __name__ == "__main__":
     update_cache()
