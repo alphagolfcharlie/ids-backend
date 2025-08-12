@@ -9,7 +9,6 @@ from math import radians, sin, cos, asin, sqrt
 INFO_CACHE_FILE = "/opt/ids-backend-1108/airport_info_cache.json"
 CONTROLLER_CACHE_FILE = "/opt/ids-backend-1108/controller_cache.json"
 AIRCRAFT_CACHE_FILE = "/opt/ids-backend-1108/aircraft_cache.json"
-CACHE_REFRESH_INTERVAL = 60  # seconds (1 minute)
 ATIS_AIRPORTS = ["KDTW","KCLE","KBUF","KPIT"]
 
 with open("data/runway_flow.json", "r") as f:
@@ -170,7 +169,6 @@ def update_controllers():
         print("Failed to update controller cache")
 
 
-CACHE_REFRESH_INTERVAL = 60  # seconds (1 minute)
 MAX_CACHE_RADIUS = 1000      # nautical miles for cache
 
 def finddist(lat1, lon1, lat2, lon2):

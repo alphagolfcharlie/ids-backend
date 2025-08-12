@@ -16,7 +16,6 @@ airport_info_cache = {
     "last_updated": None
 }
 
-CACHE_REFRESH_INTERVAL = 300  # seconds (5 minutes)
 
 def get_flow(airport_code):
     airport_code = airport_code.upper()
@@ -85,4 +84,3 @@ def refresh_airport_info_cache():
             }
         airport_info_cache["data"] = data
         airport_info_cache["last_updated"] = time.time()
-        time.sleep(CACHE_REFRESH_INTERVAL)
