@@ -145,6 +145,9 @@ def airport_info():
     try:
         with open(INFO_CACHE_FILE, "r") as f:
             data = json.load(f)
+            print(json.dumps({
+            "updatedAt": data.get("updatedAt"),
+            }, indent=2))
         return jsonify(data)
     except Exception as e:
         print(f"Error reading airport info cache: {e}")
@@ -429,6 +432,10 @@ def aircraft():
         if finddist(ac["lat"], ac["lon"], target_lat, target_lon) <= radius
     ]
 
+    print(json.dumps({
+    "updatedAt": cached_data.get("updatedAt"),
+    }, indent=2))
+
     return jsonify({
         "updatedAt": cached_data.get("updatedAt"),
         "aircraft": filtered
@@ -648,6 +655,7 @@ def get_center_controllers():
     if os.path.exists(CTL_CACHE_FILE):
         with open(CTL_CACHE_FILE, "r") as f:
             data = json.load(f)
+        print(data.get("cacheUpdatedAt"))
         return jsonify({
             "cacheUpdatedAt": data.get("cacheUpdatedAt"),
             "controllers": data.get("controllers", []),
