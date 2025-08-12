@@ -147,7 +147,6 @@ def fetch_controller_data():
                     canadian_controllers.append(controller)
 
         filtered_data = {
-            "updatedAt": vnas_data.get("updatedAt"),
             "controllers": center_controllers + canadian_controllers,
             "tracon": tracon_controllers
         }

@@ -648,9 +648,12 @@ def get_center_controllers():
     if os.path.exists(CTL_CACHE_FILE):
         with open(CTL_CACHE_FILE, "r") as f:
             data = json.load(f)
-        return jsonify(data)
-    else:
-        return jsonify({"error": "Cache not available"}), 503
+        return jsonify({
+            "cacheUpdatedAt": data.get("cacheUpdatedAt"),
+            "updatedAt": data.get("updatedAt"),
+            "controllers": data.get("controllers", []),
+            "tracon": data.get("tracon", [])
+        })
 
 
 @app.route('/api/route-to-skyvector') #api 
