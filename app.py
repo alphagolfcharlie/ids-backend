@@ -151,16 +151,14 @@ def airport_info():
         # Get the most recent cache document
         latest_cache = atis_cache.find_one(sort=[("updatedAt", -1)])
 
+
         if not latest_cache:
             return jsonify({"error": "No airport info available"}), 503
 
-        # Optional: Debug print updatedAt
-        print(json.dumps({
-            "updatedAt": latest_cache.get("updatedAt")
-        }, indent=2))
-
         # Convert MongoDB doc to JSON-friendly format
+        latest_cache['_id'] = str(latest_cache['_id'])
         return jsonify(json.loads(dumps(latest_cache)))
+        
 
     except Exception as e:
         print(f"Error reading airport info cache from MongoDB: {e}")
@@ -445,12 +443,9 @@ def aircraft():
         if finddist(ac["lat"], ac["lon"], target_lat, target_lon) <= radius
     ]
 
-    print(json.dumps({
-        "updatedAt": cached_data.get("updatedAt"),
-    }, indent=2))
+
 
     return jsonify({
-        "updatedAt": cached_data.get("updatedAt"),
         "aircraft": filtered
     })
 
@@ -669,7 +664,6 @@ def get_center_controllers():
         if not doc:
             return jsonify({"error": "No controller data available"}), 503
         
-        print(doc.get("cacheUpdatedAt"))
         return jsonify({
             "cacheUpdatedAt": doc.get("cacheUpdatedAt"),
             "controllers": doc.get("controllers", []),
