@@ -650,7 +650,6 @@ def get_center_controllers():
             data = json.load(f)
         return jsonify({
             "cacheUpdatedAt": data.get("cacheUpdatedAt"),
-            "updatedAt": data.get("updatedAt"),
             "controllers": data.get("controllers", []),
             "tracon": data.get("tracon", [])
         })
