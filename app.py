@@ -4,6 +4,7 @@ from functools import wraps
 from auxfns.searchroute import searchroute
 from pymongo import MongoClient, DESCENDING
 from bson.objectid import ObjectId
+from bson.json_util import dumps  # Helps with MongoDB's ObjectId serialization
 from dotenv import load_dotenv
 from flask_cors import CORS
 from google.oauth2 import id_token
@@ -35,6 +36,11 @@ airway_collection = db["airways"]
 star_rte_collection = db["star_rte"]
 dp_rte_collection = db["sid_rte"]
 enroute_collection = db["enroute"]
+
+atis_cache = db["atis_cache"]
+controller_cache = db["controller_cache"]
+aircraft_cache = db["aircraft_cache"]
+
 
 app = Flask(__name__)
 
@@ -138,19 +144,26 @@ def google_login():
         return jsonify({"error": "Internal server error"}), 500
 
 
-INFO_CACHE_FILE = "/opt/ids-backend-1108/airport_info_cache.json"
 
 @app.route("/api/airport_info")
 def airport_info():
     try:
-        with open(INFO_CACHE_FILE, "r") as f:
-            data = json.load(f)
-            print(json.dumps({
-            "updatedAt": data.get("updatedAt"),
-            }, indent=2))
-        return jsonify(data)
+        # Get the most recent cache document
+        latest_cache = atis_cache.find_one(sort=[("updatedAt", -1)])
+
+        if not latest_cache:
+            return jsonify({"error": "No airport info available"}), 503
+
+        # Optional: Debug print updatedAt
+        print(json.dumps({
+            "updatedAt": latest_cache.get("updatedAt")
+        }, indent=2))
+
+        # Convert MongoDB doc to JSON-friendly format
+        return jsonify(json.loads(dumps(latest_cache)))
+
     except Exception as e:
-        print(f"Error reading airport info cache: {e}")
+        print(f"Error reading airport info cache from MongoDB: {e}")
         return jsonify({"error": "No airport info available"}), 503
 
 
@@ -406,7 +419,6 @@ def get_sid_transition():
     })
 
 
-AC_CACHE_FILE = "/opt/ids-backend-1108/aircraft_cache.json"
 DEFAULT_RADIUS = 400  # nm
 
 @app.route('/api/aircraft')
@@ -417,11 +429,12 @@ def aircraft():
         radius = DEFAULT_RADIUS
 
     try:
-        with open(AC_CACHE_FILE, "r") as f:
-            cached_data = json.load(f)
+        cached_data = aircraft_cache.find_one({}, {"_id": 0})  # Get the single cache doc
+        if not cached_data:
+            return jsonify({"error": "Cache unavailable"}), 503
     except Exception as e:
-        print(f"Error reading aircraft cache: {e}")
-        return jsonify({"error": "Cache unavailable"}), 503
+        print(f"Error reading aircraft cache from MongoDB: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
     target_lat, target_lon = 41.2129, -82.9431
 
@@ -433,13 +446,14 @@ def aircraft():
     ]
 
     print(json.dumps({
-    "updatedAt": cached_data.get("updatedAt"),
+        "updatedAt": cached_data.get("updatedAt"),
     }, indent=2))
 
     return jsonify({
         "updatedAt": cached_data.get("updatedAt"),
         "aircraft": filtered
     })
+
 
 @app.route('/api/crossings')
 def api_crossings():
@@ -648,19 +662,22 @@ def create_enroute():
         "enroute_id": str(result.inserted_id)  # Return the ID of the newly created enroute
     }), 201
 
-CTL_CACHE_FILE = "/opt/ids-backend-1108/controller_cache.json"
-
 @app.route('/api/controllers')
 def get_center_controllers():
-    if os.path.exists(CTL_CACHE_FILE):
-        with open(CTL_CACHE_FILE, "r") as f:
-            data = json.load(f)
-        print(data.get("cacheUpdatedAt"))
+    try:
+        doc = controller_cache.find_one({}, {"_id": 0})  # Exclude _id for cleaner response
+        if not doc:
+            return jsonify({"error": "No controller data available"}), 503
+        
+        print(doc.get("cacheUpdatedAt"))
         return jsonify({
-            "cacheUpdatedAt": data.get("cacheUpdatedAt"),
-            "controllers": data.get("controllers", []),
-            "tracon": data.get("tracon", [])
+            "cacheUpdatedAt": doc.get("cacheUpdatedAt"),
+            "controllers": doc.get("controllers", []),
+            "tracon": doc.get("tracon", [])
         })
+    except Exception as e:
+        print(f"Error reading controller cache from MongoDB: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/api/route-to-skyvector') #api 

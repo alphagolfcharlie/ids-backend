@@ -4,11 +4,14 @@ import time
 import json
 import os
 from math import radians, sin, cos, asin, sqrt
+from pymongo import MongoClient
+from dotenv import load_dotenv
 
 
-INFO_CACHE_FILE = "/opt/ids-backend-1108/airport_info_cache.json"
-CONTROLLER_CACHE_FILE = "/opt/ids-backend-1108/controller_cache.json"
-AIRCRAFT_CACHE_FILE = "/opt/ids-backend-1108/aircraft_cache.json"
+load_dotenv('/root/.env') # FOR PROD
+#load_dotenv()  # FOR DEV
+
+MONGO_URI = os.getenv("MONGO_URI")
 ATIS_AIRPORTS = ["KDTW","KCLE","KBUF","KPIT"]
 
 with open("data/runway_flow.json", "r") as f:
@@ -17,6 +20,14 @@ with open("data/runway_flow.json", "r") as f:
 # Make sure these are defined somewhere accessible:
 # RUNWAY_FLOW_MAP = {...}
 # ATIS_AIRPORTS = [...]
+
+
+client = MongoClient(MONGO_URI)
+
+db = client["ids"]
+aircraft_cache = db["aircraft_cache"]
+controller_cache = db["controller_cache"]
+atis_cache = db["atis_cache"]
 
 def get_flow(airport_code):
     airport_code = airport_code.upper()
@@ -54,7 +65,7 @@ def get_flow(airport_code):
         return None
 
 def get_metar(icao):
-    url = f"https://aviationweather.gov/api/data/metar?ids={icao}&format=raw&hours=1"
+    url = f"https://metar.vatsim.net/{icao}"
     try:
         response = requests.get(url, timeout=5)
         if response.status_code != 200:
@@ -94,11 +105,16 @@ def update_wx():
             "flow": get_flow(code)
         }
     try:
-        with open(INFO_CACHE_FILE, "w") as f:
-            json.dump(data, f)
+        # Remove existing cache documents
+        atis_cache.delete_many({})
+
+        # Insert the new cache as a single document
+        atis_cache.insert_one(data)
+
         print(f"Airport info cache updated at {data['updatedAt']}")
     except Exception as e:
-        print(f"Error writing airport info cache: {e}")
+        print(f"Error updating airport info cache in MongoDB: {e}")
+
 
 callsign_to_artcc = {
     "TOR": "CZYZ",
@@ -160,10 +176,17 @@ def fetch_controller_data():
 def update_controllers():
     data = fetch_controller_data()
     if data:
-        data['cacheUpdatedAt'] = time.ctime()  # Add your own local update time
-        with open(CONTROLLER_CACHE_FILE, "w") as f:
-            json.dump(data, f)
-        print(f"Controller cache updated at {data['cacheUpdatedAt']}")
+        data['cacheUpdatedAt'] = time.ctime()  # Add local update time
+        try:
+            # Clear the old cache
+            controller_cache.delete_many({})
+
+            # Insert the new one
+            controller_cache.insert_one(data)
+
+            print(f"Controller cache updated at {data['cacheUpdatedAt']}")
+        except Exception as e:
+            print(f"Error updating controller cache in MongoDB: {e}")
     else:
         print("Failed to update controller cache")
 
@@ -237,11 +260,13 @@ def update_aircraft():
             "aircraft": data
         }
         try:
-            with open(AIRCRAFT_CACHE_FILE, "w") as f:
-                json.dump(wrapped, f)
+            #clear old cache
+            aircraft_cache.delete_many({})
+            #insert new cache
+            aircraft_cache.insert_one(wrapped)
             print(f"Aircraft cache updated at {wrapped['updatedAt']}")
         except Exception as e:
-            print(f"Error writing aircraft cache file: {e}")
+            print(f"Error updating aircraft cache in MongoDB: {e}")
     else:
         print("No aircraft data fetched; cache not updated.")
 
