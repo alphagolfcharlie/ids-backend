@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Aircraft API can now take a radius (from DJB, for now) parameter (defaults to 400 otherwise)
-- Airport info, pilot info, and controller info is cached so that unnecessary API calls need not be made
+- Airport info, pilot info, and controller info is cached on a DB so that unnecessary API calls need not be made
+
+### Fixed
+- Slow performance when multiple users load the site simultaneously
 
 ### Fixed
 - Issue where aircraft radius from DJB was in KM, not in NM
