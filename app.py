@@ -14,6 +14,7 @@ from google.oauth2 import id_token
 from google.auth.transport.requests import Request 
 from math import radians, cos, sin, asin, sqrt
 from update_cache import finddist
+from motor.motor_asyncio import AsyncIoMotorClient
 
 import os
 from pymongo import MongoClient
@@ -78,7 +79,7 @@ def jwt_required(token: str = Depends(lambda: None)):
     from fastapi.security import HTTPBearer
     auth = HTTPBearer(auto_error=False)
     async def verify(request: FastRequest):
-        credentials = await auth(request)
+        credentials = auth(request)
         if not credentials:
             raise HTTPException(status_code=401, detail="Token is missing")
         try:
@@ -143,7 +144,7 @@ async def api_routes(origin: str = "", destination: str = ""):
 
 @app.put("/api/routes/{route_id}")
 async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_required)):
-    result = await routes_collection.update_one(
+    result = routes_collection.update_one(
         {"_id": ObjectId(route_id)},
         {"$set": {
             "origin": data.get('origin'),
@@ -159,7 +160,7 @@ async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_
 
 @app.delete("/api/routes/{route_id}")
 async def delete_route(route_id: str, token=Depends(jwt_required)):
-    result = await routes_collection.delete_one({"_id": ObjectId(route_id)})
+    result = routes_collection.delete_one({"_id": ObjectId(route_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Route not found")
     return {"message": "Route deleted successfully"}
@@ -170,7 +171,7 @@ async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
     for field in required_fields:
         if field not in data:
             raise HTTPException(status_code=400, detail=f"'{field}' is required")
-    result = await routes_collection.insert_one({
+    result = routes_collection.insert_one({
         "origin": data['origin'],
         "destination": data['destination'],
         "route": data['route'],
@@ -181,7 +182,7 @@ async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
 
 @app.put("/api/routes/{route_id}")
 async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_required)):
-    result = await routes_collection.update_one(
+    result = routes_collection.update_one(
         {"_id": ObjectId(route_id)},
         {"$set": {
             "origin": data.get('origin'),
@@ -197,7 +198,7 @@ async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_
 
 @app.delete("/api/routes/{route_id}")
 async def delete_route(route_id: str, token=Depends(jwt_required)):
-    result = await routes_collection.delete_one({"_id": ObjectId(route_id)})
+    result = routes_collection.delete_one({"_id": ObjectId(route_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Route not found")
     return {"message": "Route deleted successfully"}
@@ -209,7 +210,7 @@ async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
     for field in required_fields:
         if field not in data:
             raise HTTPException(status_code=400, detail=f"'{field}' is required")
-    result = await routes_collection.insert_one({
+    result = routes_collection.insert_one({
         "origin": data['origin'],
         "destination": data['destination'],
         "route": data['route'],
@@ -232,13 +233,13 @@ async def get_star_transition(code: str = Query(..., description="STAR transitio
     }
 
     # First try: search by TRANSITION_COMPUTER_CODE
-    rte_cursor = await star_rte_collection.find(
+    rte_cursor = star_rte_collection.find(
         {"TRANSITION_COMPUTER_CODE": code, **runway_filter}
     ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
     # If no results, search by STAR_COMPUTER_CODE
     if not rte_cursor:
-        rte_cursor = await star_rte_collection.find(
+        rte_cursor = star_rte_collection.find(
             {
                 "STAR_COMPUTER_CODE": code,
                 "ROUTE_NAME": {"$not": re.compile(r"TRANSITION", re.IGNORECASE)},
@@ -277,13 +278,13 @@ async def get_star_transition(code: str = Query(..., description="STAR transitio
     }
 
     # First try: search by TRANSITION_COMPUTER_CODE
-    rte_cursor = await star_rte_collection.find(
+    rte_cursor = star_rte_collection.find(
         {"TRANSITION_COMPUTER_CODE": code, **runway_filter}
     ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
     # If no results, search by STAR_COMPUTER_CODE
     if not rte_cursor:
-        rte_cursor = await star_rte_collection.find(
+        rte_cursor = star_rte_collection.find(
             {
                 "STAR_COMPUTER_CODE": code,
                 "ROUTE_NAME": {"$not": re.compile(r"TRANSITION", re.IGNORECASE)},
@@ -350,7 +351,7 @@ async def get_crossings(destination: Optional[str] = Query("")):
     rows = crossings_collection.find(query).sort("destination", 1)
 
     crossings = []
-    async for row in rows:
+    for row in rows:
         crossings.append({
             "_id": str(row.get("_id")),
             "destination": row.get("destination"),
@@ -374,7 +375,7 @@ async def update_crossing(
     data: CrossingModel = Body(...),
     user=Depends(jwt_required)
 ):
-    result = await crossings_collection.update_one(
+    result = crossings_collection.update_one(
         {"_id": ObjectId(crossing_id)},
         {"$set": data.dict()}
     )
@@ -387,7 +388,7 @@ async def delete_crossing(
     crossing_id: str = Path(...),
     user=Depends(jwt_required)
 ):
-    result = await crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
+    result = crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Crossing not found")
     return {"message": "Crossing deleted successfully"}
@@ -397,7 +398,7 @@ async def create_crossing(
     data: CrossingModel = Body(...),
     user=Depends(jwt_required)
 ):
-    result = await crossings_collection.insert_one(data.dict())
+    result = crossings_collection.insert_one(data.dict())
     return {
         "message": "Crossing created successfully",
         "crossing_id": str(result.inserted_id)
@@ -426,7 +427,7 @@ async def get_enroute(
 
     results = []
     seen = set()
-    async for row in rows:
+    for row in rows:
         result_tuple = (
             row.get("Field", ""),
             row.get("Qualifier", ""),
@@ -457,7 +458,7 @@ async def delete_enroute(
     enroute_id: str,
     user=Depends(jwt_required)
 ):
-    result = await enroute_collection.delete_one({"_id": ObjectId(enroute_id)})
+    result = enroute_collection.delete_one({"_id": ObjectId(enroute_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Enroute entry not found")
     return {"message": "Enroute entry deleted successfully"}
@@ -468,7 +469,7 @@ async def update_enroute(
     data: EnrouteModel = Body(...),
     user=Depends(jwt_required)
 ):
-    result = await enroute_collection.update_one(
+    result = enroute_collection.update_one(
         {"_id": ObjectId(enroute_id)},
         {"$set": {
             "Areas": data.areas,
@@ -492,7 +493,7 @@ async def create_enroute(
         "Qualifier": data.qualifier,
         "Rule": data.rule
     }
-    result = await enroute_collection.insert_one(new_doc)
+    result = enroute_collection.insert_one(new_doc)
     return {
         "message": "Enroute entry created successfully",
         "enroute_id": str(result.inserted_id)
