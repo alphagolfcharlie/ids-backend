@@ -126,7 +126,7 @@ async def google_login(data: dict = Body(...)):
 @app.get("/api/airport_info")
 async def airport_info():
     try:
-        latest_cache = await atis_cache.find_one(sort=[("updatedAt", -1)])
+        latest_cache = atis_cache.find_one(sort=[("updatedAt", -1)])
         if not latest_cache:
             raise HTTPException(status_code=503, detail="No airport info available")
         latest_cache["_id"] = str(latest_cache["_id"])
@@ -317,7 +317,7 @@ DEFAULT_RADIUS = 400  # nm
 @app.get("/api/aircraft")
 async def get_aircraft(radius: Optional[int] = Query(DEFAULT_RADIUS)):
     try:
-        cached_data = await aircraft_cache.find_one({}, {"_id": 0})
+        cached_data = aircraft_cache.find_one({}, {"_id": 0})
         if not cached_data:
             raise HTTPException(status_code=503, detail="Cache unavailable")
     except Exception as e:
@@ -333,6 +333,9 @@ async def get_aircraft(radius: Optional[int] = Query(DEFAULT_RADIUS)):
     ]
 
     return {"aircraft": filtered}
+
+
+
 
 # ========================
 # /api/crossings
@@ -501,7 +504,7 @@ async def create_enroute(
 @app.get("/api/controllers")
 async def get_center_controllers():
     try:
-        doc = await controller_cache.find_one({}, {"_id": 0})
+        doc = controller_cache.find_one({}, {"_id": 0})
         if not doc:
             raise HTTPException(status_code=503, detail="No controller data available")
         return {

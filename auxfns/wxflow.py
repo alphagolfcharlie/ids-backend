@@ -1,5 +1,5 @@
 #get flow
-from flask import json
+import json
 import re
 import requests
 import time

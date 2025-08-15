@@ -1,5 +1,4 @@
-import os
-from flask import json
+import os, json
 from auxfns.wxflow import get_flow
 from pymongo import MongoClient, DESCENDING
 from collections import OrderedDict
