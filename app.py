@@ -1,4 +1,8 @@
-from flask import Flask, redirect, request, jsonify, json
+from fastapi import FastAPI, HTTPException, Depends, Query, Body, Path
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+from typing import Optional, List
 import requests, re, threading, time, os, jwt, datetime, urllib.parse
 from functools import wraps
 from auxfns.searchroute import searchroute
@@ -6,25 +10,25 @@ from pymongo import MongoClient, DESCENDING
 from bson.objectid import ObjectId
 from bson.json_util import dumps  # Helps with MongoDB's ObjectId serialization
 from dotenv import load_dotenv
-from flask_cors import CORS
 from google.oauth2 import id_token
 from google.auth.transport.requests import Request 
 from math import radians, cos, sin, asin, sqrt
 from update_cache import finddist
+from motor.motor_asyncio import AsyncIOMotorClient
 
-import os
-from pymongo import MongoClient
-
+# load environment variables 
 
 load_dotenv()
-
-import os
-from pymongo import MongoClient
-
 MONGO_URI = os.getenv("MONGO_URI")
+SECRET_KEY = os.getenv("SECRET_KEY")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+AUTHORIZED_EMAILS = os.getenv("AUTHORIZED_EMAILS", "").split(",")
+ATIS_AIRPORTS = os.getenv("ATIS_AIRPORTS", "").split(",")
 
 
-client = MongoClient(MONGO_URI)
+# load DBs 
+
+client = AsyncIOMotorClient(MONGO_URI)
 
 db = client["ids"]
 routes_collection = db["routes"]
@@ -42,147 +46,102 @@ controller_cache = db["controller_cache"]
 aircraft_cache = db["aircraft_cache"]
 
 
-app = Flask(__name__)
+app = FastAPI()
 
-# Allow requests from localhost:5173 only (for development)
-CORS(app, resources={r"/api/*": {
-    "origins": [
+# CORS setup
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://idsnew.vercel.app",
-        "https://ids.alphagolfcharlie.dev"
-    ]
-}})
+        "https://ids.alphagolfcharlie.dev",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-AUTHORIZED_EMAILS = os.getenv("AUTHORIZED_EMAILS", "").split(",")
-ATIS_AIRPORTS = os.getenv("ATIS_AIRPORTS", "").split(",")
-
+import json
 with open("data/runway_flow.json", "r") as f:
     RUNWAY_FLOW_MAP = json.load(f)
 
 client = MongoClient(MONGO_URI)
 
-db = client["ids"]
-routes_collection = db["routes"]
-crossings_collection = db["crossings"]
-faa_routes_collection = db["faa_prefroutes"]
-fixes_collection = db["fixes"]
-navaids_collection = db["navaids"]
-airway_collection = db["airways"]
-star_rte_collection = db["star_rte"]
-dp_rte_collection = db["sid_rte"]
-enroute_collection = db["enroute"]
 
 #jwt required
-def jwt_required(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({"error": "Token is missing"}), 401
+def jwt_required(token: str = Depends(lambda: None)):
+    from fastapi import Request as FastRequest
+    from fastapi.security import HTTPBearer
+    auth = HTTPBearer(auto_error=False)
+    async def verify(request: FastRequest):
+        credentials = auth(request)
+        if not credentials:
+            raise HTTPException(status_code=401, detail="Token is missing")
         try:
-            # Remove "Bearer " prefix if present
-            token = token.split(" ")[1] if " " in token else token
-            jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            jwt.decode(credentials.credentials, SECRET_KEY, algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token has expired"}), 401
+            raise HTTPException(status_code=401, detail="Token has expired")
         except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
-        return func(*args, **kwargs)
-    return wrapper
+            raise HTTPException(status_code=401, detail="Invalid token")
+    return verify
 
 #google login 
-@app.route('/api/google-login', methods=['POST'])
-def google_login():
-    data = request.json
+@app.post("/api/google-login")
+async def google_login(data: dict = Body(...)):
     token = data.get("token")
-
     if not token:
-        return jsonify({"error": "Token is missing"}), 400
+        raise HTTPException(status_code=400, detail="Token is missing")
 
     try:
-        # Create a Request object for token verification
         request_adapter = Request()
-
-        # Verify the Google ID token
         idinfo = id_token.verify_oauth2_token(token, request_adapter, GOOGLE_CLIENT_ID)
-
-        # Extract user info from the token
         email = idinfo.get("email")
         name = idinfo.get("name")
+        if email not in AUTHORIZED_EMAILS:
+            raise HTTPException(status_code=403, detail="Unauthorized user")
 
-        # Check if the user is authorized
-        authorized_emails = os.getenv("AUTHORIZED_EMAILS", "").split(",")
-        if email not in authorized_emails:
-            return jsonify({"error": "Unauthorized user"}), 403
-
-        # Issue a custom JWT
         custom_token = jwt.encode(
             {
                 "email": email,
                 "name": name,
-                "role": "admin",  # You can add roles or permissions here
-                "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),  # Token expiration
+                "role": "admin",
+                "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),
             },
             SECRET_KEY,
             algorithm="HS256",
         )
+        return {"message": "Login successful", "token": custom_token}
 
-        return jsonify({"message": "Login successful", "token": custom_token}), 200
-
-    except ValueError as e:
-        # Invalid token
-        print("Token verification failed:", e)
-        return jsonify({"error": "Invalid token"}), 401
-
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        # Handle unexpected errors
-        print("Unexpected error:", e)
-        return jsonify({"error": "Internal server error"}), 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 
-@app.route("/api/airport_info")
-def airport_info():
+@app.get("/api/airport_info")
+async def airport_info():
     try:
-        # Get the most recent cache document
-        latest_cache = atis_cache.find_one(sort=[("updatedAt", -1)])
-
-
+        latest_cache = await atis_cache.find_one(sort=[("updatedAt", -1)])
         if not latest_cache:
-            return jsonify({"error": "No airport info available"}), 503
-
-        # Convert MongoDB doc to JSON-friendly format
-        latest_cache['_id'] = str(latest_cache['_id'])
-        return jsonify(json.loads(dumps(latest_cache)))
-        
-
+            raise HTTPException(status_code=503, detail="No airport info available")
+        latest_cache["_id"] = str(latest_cache["_id"])
+        return json.loads(dumps(latest_cache))
     except Exception as e:
-        print(f"Error reading airport info cache from MongoDB: {e}")
-        return jsonify({"error": "No airport info available"}), 503
+        raise HTTPException(status_code=503, detail="No airport info available")
 
 
-@app.route('/api/routes')
-def api_routes():
-    origin = request.args.get('origin', '').upper()
-    destination = request.args.get('destination', '').upper()
-    routes = searchroute(origin, destination)
+@app.get("/api/routes")
+async def api_routes(origin: str = "", destination: str = ""):
+    routes = await searchroute(origin.upper(), destination.upper())
+    return routes
 
-    return jsonify(routes)
 
-# PUT endpoint to update a route
-@app.route('/api/routes/<route_id>', methods=['PUT'])
-@jwt_required
-def update_route(route_id):
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    # Update the route in the database
-    result = routes_collection.update_one(
+@app.put("/api/routes/{route_id}")
+async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_required)):
+    result = await routes_collection.update_one(
         {"_id": ObjectId(route_id)},
         {"$set": {
             "origin": data.get('origin'),
@@ -192,250 +151,176 @@ def update_route(route_id):
             "notes": data.get('notes'),
         }}
     )
-
     if result.matched_count == 0:
-        return jsonify({"error": "Route not found"}), 404
+        raise HTTPException(status_code=404, detail="Route not found")
+    return {"message": "Route updated successfully"}
 
-    return jsonify({"message": "Route updated successfully"}), 200
-
-# DELETE endpoint to delete a crossing
-@app.route('/api/routes/<route_id>', methods=['DELETE'])
-@jwt_required
-def delete_route(route_id):
-    # Delete the route from the database
-    result = routes_collection.delete_one({"_id": ObjectId(route_id)})
-
+@app.delete("/api/routes/{route_id}")
+async def delete_route(route_id: str, token=Depends(jwt_required)):
+    result = await routes_collection.delete_one({"_id": ObjectId(route_id)})
     if result.deleted_count == 0:
-        return jsonify({"error": "Route not found"}), 404
+        raise HTTPException(status_code=404, detail="Route not found")
+    return {"message": "Route deleted successfully"}
 
-    return jsonify({"message": "Route deleted successfully"}), 200
-
-# POST endpoint to create a new crossing
-@app.route('/api/routes', methods=['POST'])
-@jwt_required
-def create_route():
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    # Validate required fields
+@app.post("/api/routes")
+async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
     required_fields = ['origin', 'destination', 'route', 'notes']
     for field in required_fields:
         if field not in data:
-            return jsonify({"error": f"'{field}' is required"}), 400
-    
-    altitude = data.get('altitude', '')  # Default to an empty string if not provided
+            raise HTTPException(status_code=400, detail=f"'{field}' is required")
+    result = await routes_collection.insert_one({
+        "origin": data['origin'],
+        "destination": data['destination'],
+        "route": data['route'],
+        "altitude": data.get('altitude', ''),
+        "notes": data['notes'],
+    })
+    return {"message": "Route created successfully", "route_id": str(result.inserted_id)}
+
+@app.put("/api/routes/{route_id}")
+async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_required)):
+    result = await routes_collection.update_one(
+        {"_id": ObjectId(route_id)},
+        {"$set": {
+            "origin": data.get('origin'),
+            "destination": data.get('destination'),
+            "route": data.get('route'),
+            "altitude": data.get('altitude'),
+            "notes": data.get('notes'),
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Route not found")
+    return {"message": "Route updated successfully"}
+
+@app.delete("/api/routes/{route_id}")
+async def delete_route(route_id: str, token=Depends(jwt_required)):
+    result = await routes_collection.delete_one({"_id": ObjectId(route_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Route not found")
+    return {"message": "Route deleted successfully"}
 
 
-    # Insert the new crossing into the database
-    new_route = {
-        "origin": data.get('origin'),
-        "destination": data.get('destination'),
-        "route": data.get('route'),
-        "altitude": altitude,
-        "notes": data.get('notes'),
-    }
-    result = routes_collection.insert_one(new_route)
+@app.post("/api/routes")
+async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
+    required_fields = ['origin', 'destination', 'route',]
+    for field in required_fields:
+        if field not in data:
+            raise HTTPException(status_code=400, detail=f"'{field}' is required")
+    result = await routes_collection.insert_one({
+        "origin": data['origin'],
+        "destination": data['destination'],
+        "route": data['route'],
+        "altitude": data.get('altitude', ''),
+        "notes": data['notes'],
+    })
+    return {"message": "Route created successfully", "route_id": str(result.inserted_id)}
 
-    return jsonify({
-        "message": "Route created successfully",
-        "route_id": str(result.inserted_id)  # Return the ID of the newly created crossing
-    }), 201
-
-
-@app.route('/api/fix')
-def get_fix():
-    fixes_param = request.args.get('fixes')
-    single_fix = request.args.get('fix')
-
-    # Support both single and multiple
-    fix_list = []
-    if fixes_param:
-        fix_list = [f.strip().upper() for f in fixes_param.split(',') if f.strip()]
-    elif single_fix:
-        fix_list = [single_fix.strip().upper()]
-    else:
-        return jsonify({'error': 'Missing fix or fixes parameter'}), 400
-
-    results = {}
-
-    for fix in fix_list:
-        fix_doc = fixes_collection.find_one({'FIX_ID': fix})
-        if fix_doc and fix_doc.get('LAT_DECIMAL') is not None and fix_doc.get('LONG_DECIMAL') is not None:
-            results[fix] = {
-                'lat': fix_doc['LAT_DECIMAL'],
-                'lon': fix_doc['LONG_DECIMAL']
-            }
-            continue
-
-        nav_doc = navaids_collection.find_one({'NAV_ID': fix})
-        if nav_doc and nav_doc.get('LAT_DECIMAL') is not None and nav_doc.get('LONG_DECIMAL') is not None:
-            results[fix] = {
-                'lat': nav_doc['LAT_DECIMAL'],
-                'lon': nav_doc['LONG_DECIMAL']
-            }
-
-    return jsonify(results)
-
-@app.route('/api/airway')
-def expand_airway():
-    airway_id = request.args.get('id', '').upper()
-    start = request.args.get('from', '').upper()
-    end = request.args.get('to', '').upper()
-
-    if not airway_id:
-        return jsonify({'error': 'Missing airway ID'}), 400
-
-    airway_doc = airway_collection.find_one({'AWY_ID': airway_id})
-    if not airway_doc:
-        return jsonify({'error': f'Airway {airway_id} not found'}), 404
-
-    fixes = airway_doc['AIRWAY_STRING'].split()
-
-    # If both 'from' and 'to' are provided, return only that segment
-    if start and end:
-        try:
-            i = fixes.index(start)
-            j = fixes.index(end)
-        except ValueError:
-            return jsonify({'error': f'Either {start} or {end} not part of airway {airway_id}'}), 400
-
-        if i <= j:
-            segment = fixes[i:j+1]
-        else:
-            segment = list(reversed(fixes[j:i+1]))
-
-        return jsonify({'segment': segment})
-
-    # If only one of start/end is provided → invalid
-    elif start or end:
-        return jsonify({'error': 'Both from and to must be provided to extract a segment'}), 400
-
-    # If neither is provided → return full airway
-    else:
-        return jsonify({'segment': fixes})
-
-@app.route('/api/star')
-def get_star_transition():
-    code = request.args.get('code', '').upper()
-    if not code:
-        return jsonify({'error': 'Missing STAR transition code'}), 400
+@app.get("/api/star")
+async def get_star_transition(code: str = Query(..., description="STAR transition code")):
+    code = code.upper()
 
     # Shared ARPT_RWY_ASSOC filter
     runway_filter = {
-        '$or': [
-            {'ARPT_RWY_ASSOC': {'$exists': False}},
-            {'ARPT_RWY_ASSOC': ''},
-            {'ARPT_RWY_ASSOC': {'$not': re.compile(r'/')}}
+        "$or": [
+            {"ARPT_RWY_ASSOC": {"$exists": False}},
+            {"ARPT_RWY_ASSOC": ""},
+            {"ARPT_RWY_ASSOC": {"$not": re.compile(r"/")}}
         ]
     }
 
     # First try: search by TRANSITION_COMPUTER_CODE
-    rte_cursor = list(star_rte_collection.find({
-        'TRANSITION_COMPUTER_CODE': code,
-        **runway_filter
-    }).sort('POINT_SEQ', DESCENDING))
+    rte_cursor = star_rte_collection.find(
+        {"TRANSITION_COMPUTER_CODE": code, **runway_filter}
+    ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
+    # If no results, search by STAR_COMPUTER_CODE
     if not rte_cursor:
-        rte_cursor = list(star_rte_collection.find({
-            'STAR_COMPUTER_CODE': code,
-            'ROUTE_NAME': {'$not': re.compile(r'TRANSITION', re.IGNORECASE)},
-            **runway_filter
-        }).sort('POINT_SEQ', DESCENDING))
+        rte_cursor = star_rte_collection.find(
+            {
+                "STAR_COMPUTER_CODE": code,
+                "ROUTE_NAME": {"$not": re.compile(r"TRANSITION", re.IGNORECASE)},
+                **runway_filter
+            }
+        ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
+    # Collect unique waypoints
     waypoints = []
     for doc in rte_cursor:
-        point = doc.get('POINT')
+        point = doc.get("POINT")
         if point and point not in waypoints:
             waypoints.append(point)
 
+    # If no waypoints, fallback
     if not waypoints:
-        # Fallback for STAR: return part after the dot if code contains dot
-        if '.' in code:
-            _, after_dot = code.split('.', 1)
-            return jsonify({
-                'transition': code,
-                'waypoints': [after_dot]
-            })
+        if "." in code:
+            _, after_dot = code.split(".", 1)
+            return {"transition": code, "waypoints": [after_dot]}
         else:
-            return jsonify({'error': f'No valid waypoints found for {code}'}), 404
+            raise HTTPException(status_code=404, detail=f"No valid waypoints found for {code}")
 
-    return jsonify({
-        'transition': code,
-        'waypoints': waypoints
-    })
+    return {"transition": code, "waypoints": waypoints}
 
-@app.route('/api/sid')
-def get_sid_transition():
-    code = request.args.get('code', '').upper()
-    if not code:
-        return jsonify({'error': 'Missing SID transition code'}), 400
+@app.get("/api/star")
+async def get_star_transition(code: str = Query(..., description="STAR transition code")):
+    code = code.upper()
 
     # Shared ARPT_RWY_ASSOC filter
     runway_filter = {
-        '$or': [
-            {'ARPT_RWY_ASSOC': {'$exists': False}},
-            {'ARPT_RWY_ASSOC': ''},
-            {'ARPT_RWY_ASSOC': {'$not': re.compile(r'/')}}
+        "$or": [
+            {"ARPT_RWY_ASSOC": {"$exists": False}},
+            {"ARPT_RWY_ASSOC": ""},
+            {"ARPT_RWY_ASSOC": {"$not": re.compile(r"/")}}
         ]
     }
 
     # First try: search by TRANSITION_COMPUTER_CODE
-    rte_cursor = list(dp_rte_collection.find({
-        'TRANSITION_COMPUTER_CODE': code,
-        **runway_filter
-    }).sort('POINT_SEQ', DESCENDING))  # Note: ASCENDING for SIDs
+    rte_cursor = star_rte_collection.find(
+        {"TRANSITION_COMPUTER_CODE": code, **runway_filter}
+    ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
-    # Fallback: search by SID_COMPUTER_CODE if nothing found
+    # If no results, search by STAR_COMPUTER_CODE
     if not rte_cursor:
-        rte_cursor = list(dp_rte_collection.find({
-            'SID_COMPUTER_CODE': code,
-            **runway_filter
-        }).sort('POINT_SEQ', DESCENDING))
+        rte_cursor = star_rte_collection.find(
+            {
+                "STAR_COMPUTER_CODE": code,
+                "ROUTE_NAME": {"$not": re.compile(r"TRANSITION", re.IGNORECASE)},
+                **runway_filter
+            }
+        ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
+    # Collect unique waypoints
     waypoints = []
     for doc in rte_cursor:
-        point = doc.get('POINT')
+        point = doc.get("POINT")
         if point and point not in waypoints:
             waypoints.append(point)
 
+    # If no waypoints, fallback
     if not waypoints:
-        # Fallback for SID: return part before the dot if code contains dot
-        if '.' in code:
-            before_dot = code.split('.', 1)[0]
-            before_dot = before_dot[:-1]
-            return jsonify({
-                'transition': code,
-                'waypoints': [before_dot]
-            })
+        if "." in code:
+            _, after_dot = code.split(".", 1)
+            return {"transition": code, "waypoints": [after_dot]}
         else:
-            return jsonify({'error': f'No valid waypoints found for {code}'}), 404
+            raise HTTPException(status_code=404, detail=f"No valid waypoints found for {code}")
 
-    return jsonify({
-        'transition': code,
-        'waypoints': waypoints
-    })
+    return {"transition": code, "waypoints": waypoints}
 
 
 DEFAULT_RADIUS = 400  # nm
 
-@app.route('/api/aircraft')
-def aircraft():
+    
+@app.get("/api/aircraft")
+async def get_aircraft(radius: Optional[int] = Query(DEFAULT_RADIUS)):
     try:
-        radius = int(request.args.get("radius", DEFAULT_RADIUS))
-    except ValueError:
-        radius = DEFAULT_RADIUS
-
-    try:
-        cached_data = aircraft_cache.find_one({}, {"_id": 0})  # Get the single cache doc
+        cached_data = await aircraft_cache.find_one({}, {"_id": 0})
         if not cached_data:
-            return jsonify({"error": "Cache unavailable"}), 503
+            raise HTTPException(status_code=503, detail="Cache unavailable")
     except Exception as e:
         print(f"Error reading aircraft cache from MongoDB: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     target_lat, target_lon = 41.2129, -82.9431
-
     aircraft_list = cached_data.get("aircraft", [])
 
     filtered = [
@@ -443,273 +328,177 @@ def aircraft():
         if finddist(ac["lat"], ac["lon"], target_lat, target_lon) <= radius
     ]
 
+    return {"aircraft": filtered}
 
+@app.get("/api/crossings")
+async def get_crossings(destination: Optional[str] = Query("")):
+    dest = destination.upper()
+    if len(dest) == 4 and dest.startswith(("K", "C")):
+        dest = dest[1:]
 
-    return jsonify({
-        "aircraft": filtered
-    })
-
-
-@app.route('/api/crossings')
-def api_crossings():
-    destination = request.args.get('destination', '').upper()
-    if len(destination) == 4 and destination.startswith('K'):
-        destination = destination[1:]
-    elif len(destination) == 4 and destination.startswith('C'):
-        destination = destination[1:]
-
-    query = {"destination": destination} if destination else {}
-    rows = crossings_collection.find(query).sort("destination", 1)
+    query = {"destination": dest} if dest else {}
+    rows = await crossings_collection.find(query).sort("destination", 1)
 
     crossings = []
     for row in rows:
         crossings.append({
-            '_id': str(row.get('_id')),  # Convert ObjectId to string
-            'destination': row.get('destination'),
-            'fix': row.get('bdry_fix'),
-            'restriction': row.get('restriction'),
-            'notes': row.get('notes'),
-            'artcc': row.get('artcc')
+            "_id": str(row.get("_id")),
+            "destination": row.get("destination"),
+            "fix": row.get("bdry_fix"),
+            "restriction": row.get("restriction"),
+            "notes": row.get("notes"),
+            "artcc": row.get("artcc")
         })
+    return crossings
 
-    return jsonify(crossings)
+class CrossingModel(BaseModel):
+    destination: str
+    fix: Optional[str] = None
+    restriction: str
+    notes: Optional[str] = None
+    artcc: str
 
-# PUT endpoint to update a crossing
-@app.route('/api/crossings/<crossing_id>', methods=['PUT'])
-@jwt_required
-def update_crossing(crossing_id):
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    # Update the crossing in the database
-    result = crossings_collection.update_one(
+@app.put("/api/crossings/{crossing_id}")
+async def update_crossing(
+    crossing_id: str = Path(...),
+    data: CrossingModel = Body(...),
+    user=Depends(jwt_required)
+):
+    result = await crossings_collection.update_one(
         {"_id": ObjectId(crossing_id)},
-        {"$set": {
-            "destination": data.get('destination'),
-            "bdry_fix": data.get('fix'),
-            "restriction": data.get('restriction'),
-            "notes": data.get('notes'),
-            "artcc": data.get('artcc')
-        }}
+        {"$set": data.dict()}
     )
-
     if result.matched_count == 0:
-        return jsonify({"error": "Crossing not found"}), 404
+        raise HTTPException(status_code=404, detail="Crossing not found")
+    return {"message": "Crossing updated successfully"}
 
-    return jsonify({"message": "Crossing updated successfully"}), 200
-
-# DELETE endpoint to delete a crossing
-@app.route('/api/crossings/<crossing_id>', methods=['DELETE'])
-@jwt_required
-def delete_crossing(crossing_id):
-    # Delete the crossing from the database
-    result = crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
-
+@app.delete("/api/crossings/{crossing_id}")
+async def delete_crossing(
+    crossing_id: str = Path(...),
+    user=Depends(jwt_required)
+):
+    result = await crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
     if result.deleted_count == 0:
-        return jsonify({"error": "Crossing not found"}), 404
+        raise HTTPException(status_code=404, detail="Crossing not found")
+    return {"message": "Crossing deleted successfully"}
 
-    return jsonify({"message": "Crossing deleted successfully"}), 200
-
-# POST endpoint to create a new crossing
-@app.route('/api/crossings', methods=['POST'])
-@jwt_required
-def create_crossing():
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    # Validate required fields
-    required_fields = ['destination', 'restriction', 'artcc']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({"error": f"'{field}' is required"}), 400
-
-    # Insert the new crossing into the database
-    new_crossing = {
-        "destination": data.get('destination'),
-        "bdry_fix": data.get('fix'),
-        "restriction": data.get('restriction'),
-        "notes": data.get('notes'),
-        "artcc": data.get('artcc')
-    }
-    result = crossings_collection.insert_one(new_crossing)
-
-    return jsonify({
+@app.post("/api/crossings", status_code=201)
+async def create_crossing(
+    data: CrossingModel = Body(...),
+    user=Depends(jwt_required)
+):
+    result = await crossings_collection.insert_one(data.dict())
+    return {
         "message": "Crossing created successfully",
-        "crossing_id": str(result.inserted_id)  # Return the ID of the newly created crossing
-    }), 201
+        "crossing_id": str(result.inserted_id)
+    }
 
-@app.route('/api/enroute')
-def api_enroute():
+@app.get("/api/enroute")
+async def get_enroute(
+    field: Optional[str] = Query(""),
+    area: Optional[str] = Query(""),
+    qualifier: Optional[str] = Query("")
+):
+    f = field.upper()
+    if len(f) == 4 and f.startswith(("K", "C")):
+        f = f[1:]
 
-    field = request.args.get('field', '').upper()
-    if len(field) == 4 and field.startswith('K'):
-        field = field[1:]
-    elif len(field) == 4 and field.startswith('C'):
-        field = field[1:]
-    area = request.args.get('area', '').strip()
-    qualifier = request.args.get('qualifier','').strip()
-
-    # MongoDB query
     query = {}
-
-    if field:
-        query["Field"] = {"$regex": field, "$options": "i"}
-
+    if f:
+        query["Field"] = {"$regex": f, "$options": "i"}
     if area:
         query["Areas"] = {"$regex": area, "$options": "i"}
 
-    rows = enroute_collection.find(query)
-
- 
-    rows = enroute_collection.find(query)
+    rows = await enroute_collection.find(query)
 
     results = []
     seen = set()
-
     for row in rows:
         result_tuple = (
-            row.get('Field', ''),
-            row.get('Qualifier', ''),
-            row.get('Areas', ''),
-            row.get('Rule', '')
-    )
+            row.get("Field", ""),
+            row.get("Qualifier", ""),
+            row.get("Areas", ""),
+            row.get("Rule", "")
+        )
         if result_tuple not in seen:
             seen.add(result_tuple)
             results.append({
-                '_id': str(row.get('_id')),  # Include Mongo ID!
-                'field': result_tuple[0],
-                'qualifier': result_tuple[1],
-                'areas': result_tuple[2],
-                'rule': result_tuple[3]
+                "_id": str(row.get("_id")),
+                "field": result_tuple[0],
+                "qualifier": result_tuple[1],
+                "areas": result_tuple[2],
+                "rule": result_tuple[3]
             })
 
+    results.sort(key=lambda x: x["field"])
+    return results
 
-    # Sort results alphabetically by the 'field' key
-    results = sorted(results, key=lambda x: x['field'])
+class EnrouteModel(BaseModel):
+    areas: str
+    field: str
+    qualifier: str
+    rule: str
 
-    return jsonify(results)    
-
-# DELETE endpoint to delete an enroute
-
-@app.route('/api/enroute/<enroute_id>', methods=['DELETE'])
-@jwt_required
-def delete_enroute(enroute_id):
-    # Delete the crossing from the database
-    result = enroute_collection.delete_one({"_id": ObjectId(enroute_id)})
-
+@app.delete("/api/enroute/{enroute_id}")
+async def delete_enroute(
+    enroute_id: str,
+    user=Depends(jwt_required)
+):
+    result = await enroute_collection.delete_one({"_id": ObjectId(enroute_id)})
     if result.deleted_count == 0:
-        return jsonify({"error": "Enroute entry not found"}), 404
+        raise HTTPException(status_code=404, detail="Enroute entry not found")
+    return {"message": "Enroute entry deleted successfully"}
 
-    return jsonify({"message": "Enroute entry deleted successfully"}), 200
-
-# PUT endpoint to update an enroute
-@app.route('/api/enroute/<enroute_id>', methods=['PUT'])
-@jwt_required
-def update_enroute(enroute_id):
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    print("Received update for ID:", enroute_id)
-    print("Payload:", data)
-    # Update the enroute in the database
-    result = enroute_collection.update_one(
+@app.put("/api/enroute/{enroute_id}")
+async def update_enroute(
+    enroute_id: str,
+    data: EnrouteModel = Body(...),
+    user=Depends(jwt_required)
+):
+    result = await enroute_collection.update_one(
         {"_id": ObjectId(enroute_id)},
         {"$set": {
-            "Areas": data.get('areas'),
-            "Field": data.get('field'),
-            "Qualifier": data.get('qualifier'),
-            "Rule": data.get('rule'),
+            "Areas": data.areas,
+            "Field": data.field,
+            "Qualifier": data.qualifier,
+            "Rule": data.rule
         }}
     )
-
     if result.matched_count == 0:
-        return jsonify({"error": "Enroute entry not found"}), 404
+        raise HTTPException(status_code=404, detail="Enroute entry not found")
+    return {"message": "Enroute entry updated successfully"}
 
-    return jsonify({"message": "Enroute entry updated successfully"}), 200
-
-# POST endpoint to create a new crossing
-@app.route('/api/enroute', methods=['POST'])
-@jwt_required
-def create_enroute():
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    # Validate required fields
-    required_fields = ['areas', 'field', 'qualifier', 'rule']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({"error": f"'{field}' is required"}), 400
-
-    # Insert the new enroute into the database
-    new_enroute = {
-        "Areas": data.get('areas'),
-        "Field": data.get('field'),
-        "Qualifier": data.get('qualifier'),
-        "Rule": data.get('rule'),
+@app.post("/api/enroute", status_code=201)
+async def create_enroute(
+    data: EnrouteModel = Body(...),
+    user=Depends(jwt_required)
+):
+    new_doc = {
+        "Areas": data.areas,
+        "Field": data.field,
+        "Qualifier": data.qualifier,
+        "Rule": data.rule
     }
-    result = enroute_collection.insert_one(new_enroute)
+    result = await enroute_collection.insert_one(new_doc)
+    return {
+        "message": "Enroute entry created successfully",
+        "enroute_id": str(result.inserted_id)
+    }
 
-    return jsonify({
-        "message": "Crossing created successfully",
-        "enroute_id": str(result.inserted_id)  # Return the ID of the newly created enroute
-    }), 201
-
-@app.route('/api/controllers')
-def get_center_controllers():
+@app.get("/api/controllers")
+async def get_center_controllers():
     try:
-        doc = controller_cache.find_one({}, {"_id": 0})  # Exclude _id for cleaner response
+        doc = await controller_cache.find_one({}, {"_id": 0})
         if not doc:
-            return jsonify({"error": "No controller data available"}), 503
-        
-        return jsonify({
+            raise HTTPException(status_code=503, detail="No controller data available")
+        return {
             "cacheUpdatedAt": doc.get("cacheUpdatedAt"),
             "controllers": doc.get("controllers", []),
             "tracon": doc.get("tracon", [])
-        })
+        }
     except Exception as e:
         print(f"Error reading controller cache from MongoDB: {e}")
-        return jsonify({"error": "Internal server error"}), 500
-
-
-@app.route('/api/route-to-skyvector') #api 
-def route_to_skyvector():
-
-
-    callsign = request.args.get('callsign', '').upper().strip()
-    if not callsign:
-        return "Missing callsign parameter", 400
-
-    try:
-        print(f"Looking for: {callsign}")
-        datafeed = "https://data.vatsim.net/v3/vatsim-data.json"
-        response = requests.get(datafeed, timeout=5)
-        data = response.json()
-
-        for pilot in data.get('pilots', []):
-            current = pilot.get('callsign', '').upper()
-            if current == callsign:
-                fp = pilot.get('flight_plan')
-                if not fp:
-                    return f"No flight plan found for {callsign}", 404
-
-                dep = fp.get("departure", "").strip()
-                rte = fp.get("route", "").strip()
-                arr = fp.get("arrival", "").strip()
-
-                if not (dep and arr):
-                    return "Flight plan is missing departure or arrival", 400
-
-                full_route = f"{dep} {rte} {arr}".strip()
-                encoded = urllib.parse.quote(" ".join(full_route.split()))
-                return redirect(f"https://skyvector.com/?fpl={encoded}")
-
-        return f"Callsign {callsign} not found in VATSIM data", 404
-    except Exception as e:
-        return f"Error: {str(e)}", 500
-
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
     app.run()

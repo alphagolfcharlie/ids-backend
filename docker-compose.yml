@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "80:8000"   # Map host port 80 to FastAPI 8000
+    environment:
+      - MONGO_URL=mongodb+srv://user:password@cluster-url/mydb?retryWrites=true&w=majority
+    restart: unless-stopped
