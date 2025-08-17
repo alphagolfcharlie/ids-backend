@@ -14,7 +14,7 @@ from google.oauth2 import id_token
 from google.auth.transport.requests import Request 
 from math import radians, cos, sin, asin, sqrt
 from update_cache import finddist
-from motor.motor_asyncio import AsyncIoMotorClient
+#from motor.motor_asyncio import AsyncIoMotorClient
 
 import os
 from pymongo import MongoClient
