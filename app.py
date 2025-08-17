@@ -14,10 +14,7 @@ from google.oauth2 import id_token
 from google.auth.transport.requests import Request 
 from math import radians, cos, sin, asin, sqrt
 from update_cache import finddist
-#from motor.motor_asyncio import AsyncIoMotorClient
-
-import os
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 
 # load environment variables 
 
@@ -31,7 +28,7 @@ ATIS_AIRPORTS = os.getenv("ATIS_AIRPORTS", "").split(",")
 
 # load DBs 
 
-client = MongoClient(MONGO_URI)
+client = AsyncIOMotorClient(MONGO_URI)
 
 db = client["ids"]
 routes_collection = db["routes"]
@@ -127,7 +124,7 @@ async def google_login(data: dict = Body(...)):
 @app.get("/api/airport_info")
 async def airport_info():
     try:
-        latest_cache = atis_cache.find_one(sort=[("updatedAt", -1)])
+        latest_cache = await atis_cache.find_one(sort=[("updatedAt", -1)])
         if not latest_cache:
             raise HTTPException(status_code=503, detail="No airport info available")
         latest_cache["_id"] = str(latest_cache["_id"])
@@ -138,13 +135,13 @@ async def airport_info():
 
 @app.get("/api/routes")
 async def api_routes(origin: str = "", destination: str = ""):
-    routes = searchroute(origin.upper(), destination.upper())
+    routes = await searchroute(origin.upper(), destination.upper())
     return routes
 
 
 @app.put("/api/routes/{route_id}")
 async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_required)):
-    result = routes_collection.update_one(
+    result = await routes_collection.update_one(
         {"_id": ObjectId(route_id)},
         {"$set": {
             "origin": data.get('origin'),
@@ -160,7 +157,7 @@ async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_
 
 @app.delete("/api/routes/{route_id}")
 async def delete_route(route_id: str, token=Depends(jwt_required)):
-    result = routes_collection.delete_one({"_id": ObjectId(route_id)})
+    result = await routes_collection.delete_one({"_id": ObjectId(route_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Route not found")
     return {"message": "Route deleted successfully"}
@@ -171,7 +168,7 @@ async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
     for field in required_fields:
         if field not in data:
             raise HTTPException(status_code=400, detail=f"'{field}' is required")
-    result = routes_collection.insert_one({
+    result = await routes_collection.insert_one({
         "origin": data['origin'],
         "destination": data['destination'],
         "route": data['route'],
@@ -182,7 +179,7 @@ async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
 
 @app.put("/api/routes/{route_id}")
 async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_required)):
-    result = routes_collection.update_one(
+    result = await routes_collection.update_one(
         {"_id": ObjectId(route_id)},
         {"$set": {
             "origin": data.get('origin'),
@@ -198,7 +195,7 @@ async def update_route(route_id: str, data: dict = Body(...), token=Depends(jwt_
 
 @app.delete("/api/routes/{route_id}")
 async def delete_route(route_id: str, token=Depends(jwt_required)):
-    result = routes_collection.delete_one({"_id": ObjectId(route_id)})
+    result = await routes_collection.delete_one({"_id": ObjectId(route_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Route not found")
     return {"message": "Route deleted successfully"}
@@ -210,7 +207,7 @@ async def create_route(data: dict = Body(...), token=Depends(jwt_required)):
     for field in required_fields:
         if field not in data:
             raise HTTPException(status_code=400, detail=f"'{field}' is required")
-    result = routes_collection.insert_one({
+    result = await routes_collection.insert_one({
         "origin": data['origin'],
         "destination": data['destination'],
         "route": data['route'],
@@ -312,13 +309,11 @@ async def get_star_transition(code: str = Query(..., description="STAR transitio
 
 DEFAULT_RADIUS = 400  # nm
 
-# ========================
-# /api/aircraft
-# ========================
+    
 @app.get("/api/aircraft")
 async def get_aircraft(radius: Optional[int] = Query(DEFAULT_RADIUS)):
     try:
-        cached_data = aircraft_cache.find_one({}, {"_id": 0})
+        cached_data = await aircraft_cache.find_one({}, {"_id": 0})
         if not cached_data:
             raise HTTPException(status_code=503, detail="Cache unavailable")
     except Exception as e:
@@ -335,12 +330,6 @@ async def get_aircraft(radius: Optional[int] = Query(DEFAULT_RADIUS)):
 
     return {"aircraft": filtered}
 
-
-
-
-# ========================
-# /api/crossings
-# ========================
 @app.get("/api/crossings")
 async def get_crossings(destination: Optional[str] = Query("")):
     dest = destination.upper()
@@ -348,7 +337,7 @@ async def get_crossings(destination: Optional[str] = Query("")):
         dest = dest[1:]
 
     query = {"destination": dest} if dest else {}
-    rows = crossings_collection.find(query).sort("destination", 1)
+    rows = await crossings_collection.find(query).sort("destination", 1)
 
     crossings = []
     for row in rows:
@@ -375,7 +364,7 @@ async def update_crossing(
     data: CrossingModel = Body(...),
     user=Depends(jwt_required)
 ):
-    result = crossings_collection.update_one(
+    result = await crossings_collection.update_one(
         {"_id": ObjectId(crossing_id)},
         {"$set": data.dict()}
     )
@@ -388,7 +377,7 @@ async def delete_crossing(
     crossing_id: str = Path(...),
     user=Depends(jwt_required)
 ):
-    result = crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
+    result = await crossings_collection.delete_one({"_id": ObjectId(crossing_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Crossing not found")
     return {"message": "Crossing deleted successfully"}
@@ -398,15 +387,12 @@ async def create_crossing(
     data: CrossingModel = Body(...),
     user=Depends(jwt_required)
 ):
-    result = crossings_collection.insert_one(data.dict())
+    result = await crossings_collection.insert_one(data.dict())
     return {
         "message": "Crossing created successfully",
         "crossing_id": str(result.inserted_id)
     }
 
-# ========================
-# /api/enroute
-# ========================
 @app.get("/api/enroute")
 async def get_enroute(
     field: Optional[str] = Query(""),
@@ -423,7 +409,7 @@ async def get_enroute(
     if area:
         query["Areas"] = {"$regex": area, "$options": "i"}
 
-    rows = enroute_collection.find(query)
+    rows = await enroute_collection.find(query)
 
     results = []
     seen = set()
@@ -458,7 +444,7 @@ async def delete_enroute(
     enroute_id: str,
     user=Depends(jwt_required)
 ):
-    result = enroute_collection.delete_one({"_id": ObjectId(enroute_id)})
+    result = await enroute_collection.delete_one({"_id": ObjectId(enroute_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Enroute entry not found")
     return {"message": "Enroute entry deleted successfully"}
@@ -469,7 +455,7 @@ async def update_enroute(
     data: EnrouteModel = Body(...),
     user=Depends(jwt_required)
 ):
-    result = enroute_collection.update_one(
+    result = await enroute_collection.update_one(
         {"_id": ObjectId(enroute_id)},
         {"$set": {
             "Areas": data.areas,
@@ -493,19 +479,16 @@ async def create_enroute(
         "Qualifier": data.qualifier,
         "Rule": data.rule
     }
-    result = enroute_collection.insert_one(new_doc)
+    result = await enroute_collection.insert_one(new_doc)
     return {
         "message": "Enroute entry created successfully",
         "enroute_id": str(result.inserted_id)
     }
 
-# ========================
-# /api/controllers
-# ========================
 @app.get("/api/controllers")
 async def get_center_controllers():
     try:
-        doc = controller_cache.find_one({}, {"_id": 0})
+        doc = await controller_cache.find_one({}, {"_id": 0})
         if not doc:
             raise HTTPException(status_code=503, detail="No controller data available")
         return {
