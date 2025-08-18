@@ -228,18 +228,19 @@ def fetch_aircraft_data(radius_nm):
             route = flight_plan.get("route", "")
             departure = flight_plan.get("departure", "")
             arrival = flight_plan.get("arrival", "")
-            result.append((callsign, departure, arrival, route, lat, lon, alt, heading))
+            type = flight_plan.get("aircraft_short", "")
+            result.append((callsign, departure, arrival, route, lat, lon, alt, heading, type))
 
     target_lat, target_lon = 41.2129, -82.9431  # DJB VOR
 
     filtered = [
-        (callsign, departure, arrival, route, lat, lon, alt, heading)
-        for callsign, departure, arrival, route, lat, lon, alt, heading in result
+        (callsign, departure, arrival, route, lat, lon, alt, heading, type)
+        for callsign, departure, arrival, route, lat, lon, alt, heading, type in result
         if lat is not None and lon is not None and finddist(target_lat, target_lon, lat, lon) <= radius_nm
     ]
 
     structured = []
-    for callsign, departure, arrival, route, lat, lon, altitude, heading in filtered:
+    for callsign, departure, arrival, route, lat, lon, altitude, heading, type in filtered:
         structured.append({
             'callsign': callsign,
             'route': route,
@@ -248,7 +249,8 @@ def fetch_aircraft_data(radius_nm):
             'lat': lat,
             'lon': lon,
             'altitude': altitude,
-            'heading': heading
+            'heading': heading,
+            'type': type
         })
 
     return structured
