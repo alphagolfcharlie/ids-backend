@@ -230,13 +230,13 @@ async def get_star_transition(code: str = Query(..., description="STAR transitio
     }
 
     # First try: search by TRANSITION_COMPUTER_CODE
-    rte_cursor = star_rte_collection.find(
+    rte_cursor = await star_rte_collection.find(
         {"TRANSITION_COMPUTER_CODE": code, **runway_filter}
     ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
     # If no results, search by STAR_COMPUTER_CODE
     if not rte_cursor:
-        rte_cursor = star_rte_collection.find(
+        rte_cursor = await star_rte_collection.find(
             {
                 "STAR_COMPUTER_CODE": code,
                 "ROUTE_NAME": {"$not": re.compile(r"TRANSITION", re.IGNORECASE)},
@@ -275,13 +275,13 @@ async def get_star_transition(code: str = Query(..., description="STAR transitio
     }
 
     # First try: search by TRANSITION_COMPUTER_CODE
-    rte_cursor = star_rte_collection.find(
+    rte_cursor = await star_rte_collection.find(
         {"TRANSITION_COMPUTER_CODE": code, **runway_filter}
     ).sort("POINT_SEQ", DESCENDING).to_list(length=None)
 
     # If no results, search by STAR_COMPUTER_CODE
     if not rte_cursor:
-        rte_cursor = star_rte_collection.find(
+        rte_cursor = await star_rte_collection.find(
             {
                 "STAR_COMPUTER_CODE": code,
                 "ROUTE_NAME": {"$not": re.compile(r"TRANSITION", re.IGNORECASE)},
