@@ -124,7 +124,7 @@ async def google_login(data: dict = Body(...)):
 @app.get("/api/airport_info")
 async def airport_info():
     try:
-        latest_cache = await atis_cache.find_one(sort=[("updatedAt", -1)])
+        latest_cache = await atis_cache.find_one(sort=[("updatedAt", -1)]).to_list(length=1)
         if not latest_cache:
             raise HTTPException(status_code=503, detail="No airport info available")
         latest_cache["_id"] = str(latest_cache["_id"])
@@ -135,7 +135,7 @@ async def airport_info():
 
 @app.get("/api/routes")
 async def api_routes(origin: str = "", destination: str = ""):
-    routes = await searchroute(origin.upper(), destination.upper())
+    routes = searchroute(origin.upper(), destination.upper())
     return routes
 
 
@@ -313,7 +313,7 @@ DEFAULT_RADIUS = 400  # nm
 @app.get("/api/aircraft")
 async def get_aircraft(radius: Optional[int] = Query(DEFAULT_RADIUS)):
     try:
-        cached_data = await aircraft_cache.find_one({}, {"_id": 0})
+        cached_data = await aircraft_cache.find_one({}, {"_id": 0}).to_list(length=None)
         if not cached_data:
             raise HTTPException(status_code=503, detail="Cache unavailable")
     except Exception as e:
@@ -337,7 +337,7 @@ async def get_crossings(destination: Optional[str] = Query("")):
         dest = dest[1:]
 
     query = {"destination": dest} if dest else {}
-    rows = await crossings_collection.find(query).sort("destination", 1)
+    rows = await crossings_collection.find(query).sort("destination", 1).to_list(length=None)
 
     crossings = []
     for row in rows:
@@ -409,7 +409,7 @@ async def get_enroute(
     if area:
         query["Areas"] = {"$regex": area, "$options": "i"}
 
-    rows = await enroute_collection.find(query)
+    rows = await enroute_collection.find(query).to_list(length=None)
 
     results = []
     seen = set()
@@ -488,7 +488,7 @@ async def create_enroute(
 @app.get("/api/controllers")
 async def get_center_controllers():
     try:
-        doc = await controller_cache.find_one({}, {"_id": 0})
+        doc = await controller_cache.find_one({}, {"_id": 0}).to_list(length=None)
         if not doc:
             raise HTTPException(status_code=503, detail="No controller data available")
         return {
