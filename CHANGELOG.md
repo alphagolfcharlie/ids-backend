@@ -5,11 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.2.1] = 2025-18-08
-
-### Fixed
-- Issue where an error in asynchronous loading would stop any route query from being run
-
 ## [v1.2.0] - 2025-11-08
 
 ### Added
@@ -48,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial major release.
 
 [Unreleased]: https://github.com/OWNER/REPO/compare/v1.0.0-alpha.5...HEAD
-[v1.2.1]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.2.0...v1.2.1 
 [v1.2.0]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.1.1...v1.2.0
 [v1.1.1]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.1.0...v1.1.1
 [v1.1.0]: https://github.com/alphagolfcharlie/ids-backend/compare/v1.0.0-alpha.7...v1.1.0

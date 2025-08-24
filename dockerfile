@@ -1,7 +1,7 @@
 # Use official Python image
 FROM python:3.11-slim
 
-# Set working directory
+# Set working directory inside container
 WORKDIR /app
 
 # Copy requirements and install dependencies
@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app source code
 COPY . .
 
-# Expose port FastAPI will run on
-EXPOSE 8000
+# Expose port Flask will run on
+EXPOSE 5000
 
-# Run Uvicorn with multiple workers
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Run Gunicorn server with 4 workers
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
