@@ -12,8 +12,6 @@ from google.auth.transport.requests import Request
 from math import radians, cos, sin, asin, sqrt
 from update_cache import finddist
 
-import os
-from pymongo import MongoClient
 
 
 load_dotenv()
@@ -45,7 +43,7 @@ aircraft_cache = db["aircraft_cache"]
 app = Flask(__name__)
 
 # Allow requests from localhost:5173 only (for development)
-CORS(app, resources={r"/api/*": {
+CORS(app, resources={r"/ids/*": {
     "origins": [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -63,18 +61,6 @@ ATIS_AIRPORTS = os.getenv("ATIS_AIRPORTS", "").split(",")
 with open("data/runway_flow.json", "r") as f:
     RUNWAY_FLOW_MAP = json.load(f)
 
-client = MongoClient(MONGO_URI)
-
-db = client["ids"]
-routes_collection = db["routes"]
-crossings_collection = db["crossings"]
-faa_routes_collection = db["faa_prefroutes"]
-fixes_collection = db["fixes"]
-navaids_collection = db["navaids"]
-airway_collection = db["airways"]
-star_rte_collection = db["star_rte"]
-dp_rte_collection = db["sid_rte"]
-enroute_collection = db["enroute"]
 
 #jwt required
 def jwt_required(func):
@@ -95,7 +81,7 @@ def jwt_required(func):
     return wrapper
 
 #google login 
-@app.route('/api/google-login', methods=['POST'])
+@app.route('/ids/google-login', methods=['POST'])
 def google_login():
     data = request.json
     token = data.get("token")
@@ -145,7 +131,7 @@ def google_login():
 
 
 
-@app.route("/api/airport_info")
+@app.route("/ids/airport_info")
 def airport_info():
     try:
         # Get the most recent cache document
@@ -165,7 +151,7 @@ def airport_info():
         return jsonify({"error": "No airport info available"}), 503
 
 
-@app.route('/api/routes')
+@app.route('/ids/routes')
 def api_routes():
     origin = request.args.get('origin', '').upper()
     destination = request.args.get('destination', '').upper()
@@ -174,7 +160,7 @@ def api_routes():
     return jsonify(routes)
 
 # PUT endpoint to update a route
-@app.route('/api/routes/<route_id>', methods=['PUT'])
+@app.route('/ids/routes/<route_id>', methods=['PUT'])
 @jwt_required
 def update_route(route_id):
     data = request.json
@@ -199,7 +185,7 @@ def update_route(route_id):
     return jsonify({"message": "Route updated successfully"}), 200
 
 # DELETE endpoint to delete a crossing
-@app.route('/api/routes/<route_id>', methods=['DELETE'])
+@app.route('/ids/routes/<route_id>', methods=['DELETE'])
 @jwt_required
 def delete_route(route_id):
     # Delete the route from the database
@@ -211,7 +197,7 @@ def delete_route(route_id):
     return jsonify({"message": "Route deleted successfully"}), 200
 
 # POST endpoint to create a new crossing
-@app.route('/api/routes', methods=['POST'])
+@app.route('/ids/routes', methods=['POST'])
 @jwt_required
 def create_route():
     data = request.json
@@ -243,7 +229,7 @@ def create_route():
     }), 201
 
 
-@app.route('/api/fix')
+@app.route('/ids/fix')
 def get_fix():
     fixes_param = request.args.get('fixes')
     single_fix = request.args.get('fix')
@@ -277,7 +263,7 @@ def get_fix():
 
     return jsonify(results)
 
-@app.route('/api/airway')
+@app.route('/ids/airway')
 def expand_airway():
     airway_id = request.args.get('id', '').upper()
     start = request.args.get('from', '').upper()
@@ -315,7 +301,7 @@ def expand_airway():
     else:
         return jsonify({'segment': fixes})
 
-@app.route('/api/star')
+@app.route('/ids/star')
 def get_star_transition():
     code = request.args.get('code', '').upper()
     if not code:
@@ -365,7 +351,7 @@ def get_star_transition():
         'waypoints': waypoints
     })
 
-@app.route('/api/sid')
+@app.route('/ids/sid')
 def get_sid_transition():
     code = request.args.get('code', '').upper()
     if not code:
@@ -419,7 +405,7 @@ def get_sid_transition():
 
 DEFAULT_RADIUS = 400  # nm
 
-@app.route('/api/aircraft')
+@app.route('/ids/aircraft')
 def aircraft():
     try:
         radius = int(request.args.get("radius", DEFAULT_RADIUS))
@@ -450,7 +436,7 @@ def aircraft():
     })
 
 
-@app.route('/api/crossings')
+@app.route('/ids/crossings')
 def api_crossings():
     destination = request.args.get('destination', '').upper()
     if len(destination) == 4 and destination.startswith('K'):
@@ -475,7 +461,7 @@ def api_crossings():
     return jsonify(crossings)
 
 # PUT endpoint to update a crossing
-@app.route('/api/crossings/<crossing_id>', methods=['PUT'])
+@app.route('/ids/crossings/<crossing_id>', methods=['PUT'])
 @jwt_required
 def update_crossing(crossing_id):
     data = request.json
@@ -500,7 +486,7 @@ def update_crossing(crossing_id):
     return jsonify({"message": "Crossing updated successfully"}), 200
 
 # DELETE endpoint to delete a crossing
-@app.route('/api/crossings/<crossing_id>', methods=['DELETE'])
+@app.route('/ids/crossings/<crossing_id>', methods=['DELETE'])
 @jwt_required
 def delete_crossing(crossing_id):
     # Delete the crossing from the database
@@ -512,7 +498,7 @@ def delete_crossing(crossing_id):
     return jsonify({"message": "Crossing deleted successfully"}), 200
 
 # POST endpoint to create a new crossing
-@app.route('/api/crossings', methods=['POST'])
+@app.route('/ids/crossings', methods=['POST'])
 @jwt_required
 def create_crossing():
     data = request.json
@@ -540,7 +526,7 @@ def create_crossing():
         "crossing_id": str(result.inserted_id)  # Return the ID of the newly created crossing
     }), 201
 
-@app.route('/api/enroute')
+@app.route('/ids/enroute')
 def api_enroute():
 
     field = request.args.get('field', '').upper()
@@ -593,7 +579,7 @@ def api_enroute():
 
 # DELETE endpoint to delete an enroute
 
-@app.route('/api/enroute/<enroute_id>', methods=['DELETE'])
+@app.route('/ids/enroute/<enroute_id>', methods=['DELETE'])
 @jwt_required
 def delete_enroute(enroute_id):
     # Delete the crossing from the database
@@ -605,7 +591,7 @@ def delete_enroute(enroute_id):
     return jsonify({"message": "Enroute entry deleted successfully"}), 200
 
 # PUT endpoint to update an enroute
-@app.route('/api/enroute/<enroute_id>', methods=['PUT'])
+@app.route('/ids/enroute/<enroute_id>', methods=['PUT'])
 @jwt_required
 def update_enroute(enroute_id):
     data = request.json
@@ -630,7 +616,7 @@ def update_enroute(enroute_id):
     return jsonify({"message": "Enroute entry updated successfully"}), 200
 
 # POST endpoint to create a new crossing
-@app.route('/api/enroute', methods=['POST'])
+@app.route('/ids/enroute', methods=['POST'])
 @jwt_required
 def create_enroute():
     data = request.json
@@ -657,7 +643,7 @@ def create_enroute():
         "enroute_id": str(result.inserted_id)  # Return the ID of the newly created enroute
     }), 201
 
-@app.route('/api/controllers')
+@app.route('/ids/controllers')
 def get_center_controllers():
     try:
         doc = controller_cache.find_one({}, {"_id": 0})  # Exclude _id for cleaner response
@@ -674,7 +660,7 @@ def get_center_controllers():
         return jsonify({"error": "Internal server error"}), 500
 
 
-@app.route('/api/route-to-skyvector') #api 
+@app.route('/ids/route-to-skyvector') #api 
 def route_to_skyvector():
 
 
