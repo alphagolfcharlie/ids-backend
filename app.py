@@ -411,7 +411,7 @@ def aircraft():
         radius = int(request.args.get("radius", DEFAULT_RADIUS))
     except ValueError:
         radius = DEFAULT_RADIUS
-
+    includeOnGround = request.args.get("ground", "false").lower() in ("true", "1", "yes")
     try:
         cached_data = aircraft_cache.find_one({}, {"_id": 0})  # Get the single cache doc
         if not cached_data:
@@ -429,7 +429,10 @@ def aircraft():
         if finddist(ac["lat"], ac["lon"], target_lat, target_lon) <= radius
     ]
 
-
+    if not includeOnGround:
+        filtered = [ac for ac in filtered if ac["speed"] >= 50]
+    else:
+        pass
 
     return jsonify({
         "aircraft": filtered
