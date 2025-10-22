@@ -1,2 +1,2 @@
 # IDS
-Backend for a prototype IDS modelled around vZOB, including tools for route and enroute crossing checking, weather and RW ATIS status updates, and map/route plotting tools. This is not an official tool of the virtual Cleveland ARTCC at this time, nor is it for real-world use. Always double-check information with relevant SOPs and/or LOAs. 
+Backend for a vZOB prototype IDS, vatUSA split map system (coming soon) and other personal VATSIM-related projects. This is not an official tool of the virtual Cleveland ARTCC at this time, nor is it for real-world use. Always double-check information with relevant SOPs and/or LOAs. 

@@ -46,7 +46,9 @@ app = Flask(__name__)
 CORS(app, resources={r"/ids/*": {
     "origins": [
         "http://localhost:5173",
+        "http://localhost:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
         "https://idsnew.vercel.app",
         "https://ids.alphagolfcharlie.dev"
     ]

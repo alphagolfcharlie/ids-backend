@@ -128,10 +128,12 @@ def searchroute(origin, destination):
             'isEvent': eventRoute
         }
 
+    print(routes_dict)
+
     # Step 4: Overwrite duplicates with FAA routes (only if origin and destination are provided)
     if origin or destination:
         for row in faa_matches:
-            route_string = normalize(row.get("Route String", ""))
+            route_string = normalize(row.get("RouteString", ""))
             route_origin = origin.upper()
             route_destination = destination.upper()
             key = (route_origin, route_destination, route_string)
